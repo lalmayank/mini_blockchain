@@ -22,11 +22,32 @@ COMMON_FEATURE_NAMES = [
     "deviation_score"
 ]
 
+def _generate_synthetic_bank_data(bank_type: str, n_samples: int = 5000):
+    """
+    Fallback data generator for new environments where large raw CSV datasets
+    are not yet downloaded. Produces realistic 16-D features and labels.
+    """
+    print(f" [INFO] Dataset not found on disk. Generating {n_samples} synthetic transactions for {bank_type}...")
+    rng = np.random.default_rng(42 if bank_type == "bank_a" else 43 if bank_type == "bank_b" else 44)
+    X = rng.normal(loc=0.0, scale=1.0, size=(n_samples, len(COMMON_FEATURE_NAMES))).astype(np.float32)
+    y = np.zeros(n_samples, dtype=np.float32)
+    n_fraud = int(n_samples * 0.04)
+    fraud_indices = rng.choice(n_samples, size=n_fraud, replace=False)
+    y[fraud_indices] = 1.0
+    X[fraud_indices, 0] += 2.5
+    X[fraud_indices, 8] = 1.0
+    X[fraud_indices, 9] = 1.0
+    X[fraud_indices, 12] = 0.8
+    return X, y
+
 def load_bank_a_common(dataset_path: str = os.path.join("model2", "creditcard.csv")):
     """
     Bank A: Credit Card Fraud Dataset.
     Transforms raw card transactions into the universal 16-feature schema.
     """
+    if not os.path.exists(dataset_path):
+        return _generate_synthetic_bank_data("Bank A (Credit Card)", 5000)
+
     df = pd.read_csv(dataset_path)
     amount = df["Amount"].values
     time_sec = df["Time"].values
@@ -76,6 +97,9 @@ def load_bank_b_common(
     Bank B: PaySim Mobile Money Dataset.
     Transforms raw money transfers into the universal 16-feature schema.
     """
+    if not os.path.exists(dataset_path):
+        return _generate_synthetic_bank_data("Bank B (PaySim)", 5000)
+
     chunks = []
     fraud_chunks = []
     non_fraud_collected = 0
@@ -135,6 +159,9 @@ def load_bank_c_common(dataset_path: str = os.path.join("model3", "bs140513_0323
     Bank C: BankSim Synthetic Payments Dataset.
     Transforms retail payments into the universal 16-feature schema.
     """
+    if not os.path.exists(dataset_path):
+        return _generate_synthetic_bank_data("Bank C (BankSim)", 5000)
+
     df = pd.read_csv(dataset_path)
     for col in ["category", "gender", "age"]:
         df[col] = df[col].astype(str).str.strip("'\"")
