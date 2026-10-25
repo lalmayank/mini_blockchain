@@ -1,0 +1,108 @@
+[
+  {
+    "timestamp": 1792962220,
+    "round_id": 1,
+    "defense_strategy": "fedavg",
+    "client_submissions": [
+      {
+        "bank_id": "bank_a",
+        "weights_hash": "39d7813242391475da7c6555057b52a06532059fd09684b3514daf47f1b9e398",
+        "sample_count": 284807,
+        "decision": "ACCEPTED",
+        "reason": "Update validated successfully."
+      },
+      {
+        "bank_id": "bank_b",
+        "weights_hash": "d8580923d62e5fb5d23881f830aed257622ae8239c0f1ace6b077f8df42658dd",
+        "sample_count": 308213,
+        "decision": "ACCEPTED",
+        "reason": "Update validated successfully."
+      },
+      {
+        "bank_id": "bank_c",
+        "weights_hash": "4986cc18c3e6beb4f69bab6a788a3f49b94688a7fb0da7da59fe5b07e7b4ef06",
+        "sample_count": 594643,
+        "decision": "ACCEPTED",
+        "reason": "Update validated successfully."
+      }
+    ],
+    "resulting_global_model_hash": "406aa1ddcf59d07528bf60fbabc579bf2948623fd673d5e7a05dbc869adccdc3",
+    "evaluation_metrics": {
+      "Bank_A": 0.05023784167683437,
+      "Bank_C": 0.7459992650025105
+    }
+  },
+  {
+    "timestamp": 1792962382,
+    "round_id": 2,
+    "defense_strategy": "fedavg",
+    "client_submissions": [
+      {
+        "bank_id": "bank_a",
+        "weights_hash": "7eac6775310fe2aee1bc30fd2125f37dd44ec3026d1f21949c43d1e739c3efdf",
+        "sample_count": 284807,
+        "decision": "ACCEPTED",
+        "reason": "Update validated successfully."
+      },
+      {
+        "bank_id": "bank_b",
+        "weights_hash": "2e2f518115f2063c89a08efebbf4cbfeb0f13543fddb4b82067304f3bec8f5e6",
+        "sample_count": 308213,
+        "decision": "ACCEPTED",
+        "reason": "Update validated successfully."
+      },
+      {
+        "bank_id": "bank_c",
+        "weights_hash": "681bb03c21de883dae4f242f36da9ac98583b163de4d76501a1966f5d5a03d37",
+        "sample_count": 594643,
+        "decision": "REJECTED",
+        "reason": "Abnormal weight norm (287512.52 > 6249.54). Poisoning suspected."
+      }
+    ],
+    "resulting_global_model_hash": "84f2b89d531b706895c19cf900038a9d5ddb738a06a3b34b895bbbda3e482364",
+    "evaluation_metrics": {
+      "Bank_A": 0.1365915529850227,
+      "Bank_C": 0.6617709849197181
+    }
+  },
+  {
+    "timestamp": 1792962953,
+    "round_id": 1,
+    "defense_strategy": "fedavg",
+    "blockchain_receipt": {
+      "transaction_hash": "9352575235200413282e746867eec1fe769e5bdba5c68e074aa6edbd08e33dd2",
+      "block_number": 2,
+      "gas_used": 818611,
+      "round_id": 1,
+      "status": "SUCCESS"
+    },
+    "client_submissions": [
+      {
+        "bank_id": "bank_a",
+        "weights_hash": "39d7813242391475da7c6555057b52a06532059fd09684b3514daf47f1b9e398",
+        "sample_count": 284807,
+        "decision": "ACCEPTED",
+        "reason": "Update validated successfully."
+      },
+      {
+        "bank_id": "bank_b",
+        "weights_hash": "d8580923d62e5fb5d23881f830aed257622ae8239c0f1ace6b077f8df42658dd",
+        "sample_count": 308213,
+        "decision": "ACCEPTED",
+        "reason": "Update validated successfully."
+      },
+      {
+        "bank_id": "bank_c",
+        "weights_hash": "4986cc18c3e6beb4f69bab6a788a3f49b94688a7fb0da7da59fe5b07e7b4ef06",
+        "sample_count": 594643,
+        "decision": "ACCEPTED",
+        "reason": "Update validated successfully."
+      }
+    ],
+    "resulting_global_model_hash": "406aa1ddcf59d07528bf60fbabc579bf2948623fd673d5e7a05dbc869adccdc3",
+    "evaluation_metrics": {
+      "Bank_A": 0.05023784167683437,
+      "Bank_C": 0.7459992650025105
+    }
+  }
+]

@@ -1,0 +1,46 @@
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Node Modules & Frontend Builds
+node_modules/
+*/node_modules/
+.pnpm-store/
+.next/
+*/.next/
+out/
+build/
+dist/
+
+# Python Cache & Bytecode
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Solc Compiler Cache
+.solcx/
+*/.solcx/
+
+# Datasets (Large CSV files per project blueprint)
+model1/*.csv
+model2/*.csv
+model3/*.csv
+*.csv
+
+# Secrets & Environment Variables
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
