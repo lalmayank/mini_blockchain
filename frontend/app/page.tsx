@@ -20,12 +20,18 @@ import {
   ArrowRight,
   BarChart3,
   Check,
-  FileCheck
+  FileCheck,
+  Network,
+  GitBranch,
+  Share2,
+  Sliders,
+  Compass,
+  Sparkles
 } from "lucide-react";
 import * as api from "./api";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"overview" | "training" | "fraud" | "security" | "audit">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "training" | "fraud" | "security" | "audit" | "algorithms">("overview");
 
   // Live Backend Data States
   const [status, setStatus] = useState<any>(null);
@@ -144,6 +150,33 @@ export default function App() {
   const [verifyResult, setVerifyResult] = useState<any>(null);
   const [verifyingHash, setVerifyingHash] = useState(false);
 
+  // Page 6: AI & Heuristic Algorithms State
+  const [algoTab, setAlgoTab] = useState<"graph" | "heuristics" | "annealing">("graph");
+  const [graphTopology, setGraphTopology] = useState<any>(null);
+  const [bfsStartNode, setBfsStartNode] = useState("A_CARD_901");
+  const [bfsMaxDepth, setBfsMaxDepth] = useState(3);
+  const [bfsResult, setBfsResult] = useState<any>(null);
+  const [loadingBFS, setLoadingBFS] = useState(false);
+
+  const [dfsResult, setDfsResult] = useState<any>(null);
+  const [loadingDFS, setLoadingDFS] = useState(false);
+
+  const [astarStartNode, setAstarStartNode] = useState("A_CARD_901");
+  const [astarEndNode, setAstarEndNode] = useState("C_RETL_302");
+  const [astarResult, setAstarResult] = useState<any>(null);
+  const [loadingAStar, setLoadingAStar] = useState(false);
+
+  const [benfordResult, setBenfordResult] = useState<any>(null);
+  const [benfordSynthetic, setBenfordSynthetic] = useState(false);
+  const [loadingBenford, setLoadingBenford] = useState(false);
+
+  const [smurfingResult, setSmurfingResult] = useState<any>(null);
+  const [smurfingSampleType, setSmurfingSampleType] = useState("smurfed");
+  const [loadingSmurfing, setLoadingSmurfing] = useState(false);
+
+  const [saResult, setSaResult] = useState<any>(null);
+  const [loadingSA, setLoadingSA] = useState(false);
+
   useEffect(() => {
     loadInitialData();
     const interval = setInterval(() => {
@@ -154,13 +187,14 @@ export default function App() {
 
   const loadInitialData = async () => {
     try {
-      const [st, bk, gm, ar, comp, smp] = await Promise.all([
+      const [st, bk, gm, ar, comp, smp, topo] = await Promise.all([
         api.getSystemStatus(),
         api.getRegisteredBanks(),
         api.getGlobalModel(),
         api.getAuditRounds(),
         api.getModelComparison(),
-        api.getFraudSamples()
+        api.getFraudSamples(),
+        api.getGraphTopology().catch(() => null)
       ]);
       setStatus(st);
       setBanks(bk.banks || []);
@@ -168,6 +202,7 @@ export default function App() {
       setAuditRounds(ar.rounds || []);
       setComparison(comp.benchmarks || []);
       setSamples(smp.samples || []);
+      if (topo) setGraphTopology(topo);
       setBackendOnline(true);
 
       if (smp.samples && smp.samples.length > 0) {
@@ -269,6 +304,96 @@ export default function App() {
     }
   };
 
+  // Algorithm & Heuristic Handlers
+  const handleFetchTopology = async () => {
+    try {
+      const topo = await api.getGraphTopology();
+      setGraphTopology(topo);
+    } catch (e: any) {
+      console.error("Failed to load topology", e);
+    }
+  };
+
+  const handleRunBFS = async () => {
+    setLoadingBFS(true);
+    setBfsResult(null);
+    try {
+      const res = await api.runBFSMuleTrace(bfsStartNode, bfsMaxDepth);
+      setBfsResult(res);
+    } catch (err: any) {
+      alert("BFS trace failed: " + err.message);
+    } finally {
+      setLoadingBFS(false);
+    }
+  };
+
+  const handleRunDFS = async () => {
+    setLoadingDFS(true);
+    setDfsResult(null);
+    try {
+      const res = await api.runDFSWashCycles(6);
+      setDfsResult(res);
+    } catch (err: any) {
+      alert("DFS cycle detection failed: " + err.message);
+    } finally {
+      setLoadingDFS(false);
+    }
+  };
+
+  const handleRunAStar = async () => {
+    setLoadingAStar(true);
+    setAstarResult(null);
+    try {
+      const res = await api.runAStarPath(astarStartNode, astarEndNode);
+      setAstarResult(res);
+    } catch (err: any) {
+      alert("A* Path search failed: " + err.message);
+    } finally {
+      setLoadingAStar(false);
+    }
+  };
+
+  const handleRunBenford = async (useSynthetic: boolean) => {
+    setLoadingBenford(true);
+    setBenfordResult(null);
+    setBenfordSynthetic(useSynthetic);
+    try {
+      const res = await api.runBenfordHeuristic(useSynthetic);
+      setBenfordResult(res);
+    } catch (err: any) {
+      alert("Benford heuristic failed: " + err.message);
+    } finally {
+      setLoadingBenford(false);
+    }
+  };
+
+  const handleRunSmurfing = async (type: string) => {
+    setLoadingSmurfing(true);
+    setSmurfingResult(null);
+    setSmurfingSampleType(type);
+    try {
+      const res = await api.runSmurfingHeuristic(type, 10000.0);
+      setSmurfingResult(res);
+    } catch (err: any) {
+      alert("Smurfing heuristic failed: " + err.message);
+    } finally {
+      setLoadingSmurfing(false);
+    }
+  };
+
+  const handleRunSA = async () => {
+    setLoadingSA(true);
+    setSaResult(null);
+    try {
+      const res = await api.runClientWeightsSA(100.0, 0.92, 150);
+      setSaResult(res);
+    } catch (err: any) {
+      alert("Simulated Annealing failed: " + err.message);
+    } finally {
+      setLoadingSA(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans">
       {/* Top Navigation */}
@@ -319,7 +444,8 @@ export default function App() {
           { id: "training", label: "Page 2 — Federated Learning", icon: Cpu },
           { id: "fraud", label: "Page 3 — Fraud Explorer", icon: Search },
           { id: "security", label: "Page 4 — Trust & Security", icon: ShieldAlert },
-          { id: "audit", label: "Page 5 — Blockchain Audit", icon: Layers }
+          { id: "audit", label: "Page 5 — Blockchain Audit", icon: Layers },
+          { id: "algorithms", label: "Page 6 — AI & Heuristics Lab", icon: Network }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -1549,6 +1675,667 @@ export default function App() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            PAGE 6 — AI & HEURISTIC ALGORITHMS LAB
+            ========================================================================= */}
+        {activeTab === "algorithms" && (
+          <div className="space-y-6">
+            {/* Header Explainer Banner */}
+            <div className="p-5 bg-gradient-to-r from-indigo-100 via-sky-100 to-amber-100 border-2 border-indigo-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 text-[#0F172A] shadow-sm">
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <Network className="h-6 w-6 text-indigo-700" />
+                  <h3 className="text-base font-black">Algorithmic & Heuristic Intelligence Suite</h3>
+                  <span className="px-2.5 py-0.5 text-[10px] bg-indigo-700 text-white rounded font-bold uppercase tracking-wider">
+                    Graph Search & Meta-Heuristics
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 font-medium max-w-3xl">
+                  While neural networks (MLPs) detect isolated single-transaction anomalies, real-world financial fraud rings require <strong>Graph Search Algorithms</strong> (BFS, DFS, Dijkstra, A*) to detect multi-hop money muling & wash cycles, plus <strong>Forensic Heuristics</strong> (Benford's Law, Smurfing, Simulated Annealing) to uncover scripted fraud amounts and optimize federated weighting.
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  onClick={() => setAlgoTab("graph")}
+                  className={`px-3.5 py-2 text-xs font-bold rounded-lg transition ${
+                    algoTab === "graph" ? "bg-indigo-700 text-white shadow-sm" : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  🕸️ Graph Search (BFS/DFS/A*)
+                </button>
+                <button
+                  onClick={() => setAlgoTab("heuristics")}
+                  className={`px-3.5 py-2 text-xs font-bold rounded-lg transition ${
+                    algoTab === "heuristics" ? "bg-indigo-700 text-white shadow-sm" : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  📊 Forensic Heuristics (Benford)
+                </button>
+                <button
+                  onClick={() => setAlgoTab("annealing")}
+                  className={`px-3.5 py-2 text-xs font-bold rounded-lg transition ${
+                    algoTab === "annealing" ? "bg-indigo-700 text-white shadow-sm" : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  🧬 Simulated Annealing
+                </button>
+              </div>
+            </div>
+
+            {/* SUBTAB 1: GRAPH SEARCH (BFS, DFS, A*) */}
+            {algoTab === "graph" && (
+              <div className="space-y-6">
+                {/* Visual Topology Diagram */}
+                <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                    <div className="flex items-center space-x-2">
+                      <Share2 className="h-5 w-5 text-indigo-700" />
+                      <h4 className="text-sm font-black text-[#0F172A]">Multi-Bank Transaction Graph Topology</h4>
+                      <span className="text-xs text-slate-500 font-mono">(Bank A Cards + Bank B PaySim + Bank C BankSim)</span>
+                    </div>
+                    <div className="flex items-center space-x-3 text-xs font-bold">
+                      <span className="flex items-center space-x-1.5"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> <span>Bank A (Cards)</span></span>
+                      <span className="flex items-center space-x-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span> <span>Bank B (PaySim)</span></span>
+                      <span className="flex items-center space-x-1.5"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> <span>Bank C (BankSim)</span></span>
+                      <span className="flex items-center space-x-1.5"><span className="w-3 h-3 rounded-full bg-rose-500 animate-pulse inline-block"></span> <span>Cashout / Mule Sink</span></span>
+                    </div>
+                  </div>
+
+                  {/* SVG Topology Representation */}
+                  <div className="bg-slate-900 rounded-xl p-4 overflow-x-auto">
+                    <svg viewBox="0 0 920 320" className="w-full h-72 min-w-[750px]">
+                      {/* Grid background markers */}
+                      <defs>
+                        <marker id="arrow" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8" />
+                        </marker>
+                        <marker id="arrow-fraud" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#EF4444" />
+                        </marker>
+                        <marker id="arrow-cycle" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#F59E0B" />
+                        </marker>
+                      </defs>
+
+                      {/* Directed Edge lines */}
+                      {/* BFS / Laundering Path A_CARD_901 -> B_MOBI_201 */}
+                      <line x1="120" y1="90" x2="340" y2="70" stroke={bfsResult?.traversal_sequence?.includes("B_MOBI_201") ? "#38BDF8" : "#EF4444"} strokeWidth="2.5" markerEnd="url(#arrow-fraud)" />
+                      <text x="220" y="70" fill="#FCA5A5" fontSize="10" fontFamily="monospace">$9,850 (P=0.88)</text>
+
+                      {/* A_CARD_901 -> B_MOBI_202 */}
+                      <line x1="120" y1="90" x2="340" y2="150" stroke={bfsResult?.traversal_sequence?.includes("B_MOBI_202") ? "#38BDF8" : "#EF4444"} strokeWidth="2" markerEnd="url(#arrow-fraud)" />
+                      <text x="210" y="130" fill="#FCA5A5" fontSize="10" fontFamily="monospace">$9,500 (P=0.72)</text>
+
+                      {/* B_MOBI_201 -> B_MOBI_203 */}
+                      <line x1="340" y1="70" x2="560" y2="70" stroke={bfsResult?.traversal_sequence?.includes("B_MOBI_203") ? "#38BDF8" : "#EF4444"} strokeWidth="2.5" markerEnd="url(#arrow-fraud)" />
+                      <text x="440" y="60" fill="#FCA5A5" fontSize="10" fontFamily="monospace">$4,900 (P=0.84)</text>
+
+                      {/* B_MOBI_201 -> C_RETL_301 */}
+                      <line x1="340" y1="70" x2="560" y2="170" stroke={bfsResult?.traversal_sequence?.includes("C_RETL_301") ? "#38BDF8" : "#EF4444"} strokeWidth="2" markerEnd="url(#arrow-fraud)" />
+                      <text x="430" y="125" fill="#FCA5A5" fontSize="10" fontFamily="monospace">$4,800 (P=0.79)</text>
+
+                      {/* B_MOBI_203 -> C_RETL_302 (Cashout Terminal) */}
+                      <line x1="560" y1="70" x2="780" y2="110" stroke={astarResult?.path?.includes("C_RETL_302") ? "#F59E0B" : "#EF4444"} strokeWidth="3" markerEnd="url(#arrow-fraud)" />
+                      <text x="660" y="80" fill="#F87171" fontSize="10" fontFamily="monospace" fontWeight="bold">$4,750 (P=0.96) CASH-OUT</text>
+
+                      {/* C_RETL_301 -> C_RETL_302 */}
+                      <line x1="560" y1="170" x2="780" y2="110" stroke="#EF4444" strokeWidth="2" markerEnd="url(#arrow-fraud)" />
+                      <text x="660" y="155" fill="#FCA5A5" fontSize="10" fontFamily="monospace">$4,600 (P=0.94)</text>
+
+                      {/* DFS Circular Wash Cycle: C_RETL_301 -> C_RETL_303 -> A_CARD_902 -> C_RETL_301 */}
+                      <path d="M 560 170 Q 640 250 560 270" fill="none" stroke={dfsResult ? "#F59E0B" : "#64748B"} strokeWidth="2" markerEnd="url(#arrow-cycle)" />
+                      <text x="610" y="235" fill="#FCD34D" fontSize="9" fontFamily="monospace">Cycle Step 1</text>
+
+                      <path d="M 560 270 Q 420 300 340 250" fill="none" stroke={dfsResult ? "#F59E0B" : "#64748B"} strokeWidth="2" markerEnd="url(#arrow-cycle)" />
+                      <text x="440" y="295" fill="#FCD34D" fontSize="9" fontFamily="monospace">Cycle Step 2</text>
+
+                      <path d="M 340 250 Q 440 200 560 170" fill="none" stroke={dfsResult ? "#F59E0B" : "#64748B"} strokeWidth="2" markerEnd="url(#arrow-cycle)" />
+                      <text x="420" y="220" fill="#FCD34D" fontSize="9" fontFamily="monospace">Cycle Step 3 (Wash Return)</text>
+
+                      {/* Benign path */}
+                      <line x1="120" y1="220" x2="120" y2="280" stroke="#475569" strokeWidth="1.5" markerEnd="url(#arrow)" />
+                      <line x1="120" y1="280" x2="780" y2="260" stroke="#475569" strokeWidth="1.5" markerEnd="url(#arrow)" />
+
+                      {/* Account Nodes */}
+                      {/* Origin Suspect A_CARD_901 */}
+                      <g className="cursor-pointer">
+                        <circle cx="120" cy="90" r="22" fill="#1E3A8A" stroke="#60A5FA" strokeWidth="3" />
+                        <text x="120" y="88" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle">A_CARD</text>
+                        <text x="120" y="100" fill="#93C5FD" fontSize="8" fontFamily="monospace" textAnchor="middle">#901</text>
+                        <text x="120" y="125" fill="#FCA5A5" fontSize="9" fontWeight="bold" textAnchor="middle">Suspect Origin</text>
+                      </g>
+
+                      {/* Bank B Mules */}
+                      <g className="cursor-pointer">
+                        <circle cx="340" cy="70" r="20" fill="#064E3B" stroke="#34D399" strokeWidth="2.5" />
+                        <text x="340" y="68" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle">B_MOBI</text>
+                        <text x="340" y="80" fill="#A7F3D0" fontSize="8" fontFamily="monospace" textAnchor="middle">#201 (Mule)</text>
+                      </g>
+
+                      <g className="cursor-pointer">
+                        <circle cx="340" cy="150" r="18" fill="#064E3B" stroke="#34D399" strokeWidth="2" />
+                        <text x="340" y="148" fill="#FFFFFF" fontSize="8" fontWeight="bold" textAnchor="middle">B_MOBI</text>
+                        <text x="340" y="159" fill="#A7F3D0" fontSize="7" fontFamily="monospace" textAnchor="middle">#202</text>
+                      </g>
+
+                      <g className="cursor-pointer">
+                        <circle cx="560" cy="70" r="20" fill="#064E3B" stroke="#34D399" strokeWidth="2.5" />
+                        <text x="560" y="68" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle">B_MOBI</text>
+                        <text x="560" y="80" fill="#A7F3D0" fontSize="8" fontFamily="monospace" textAnchor="middle">#203 (Mule)</text>
+                      </g>
+
+                      {/* Bank C Nodes */}
+                      <g className="cursor-pointer">
+                        <circle cx="560" cy="170" r="20" fill="#78350F" stroke="#FBBF24" strokeWidth="2.5" />
+                        <text x="560" y="168" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle">C_RETL</text>
+                        <text x="560" y="180" fill="#FDE68A" fontSize="8" fontFamily="monospace" textAnchor="middle">#301</text>
+                      </g>
+
+                      <g className="cursor-pointer">
+                        <circle cx="560" cy="270" r="18" fill="#78350F" stroke="#FBBF24" strokeWidth="2" />
+                        <text x="560" y="268" fill="#FFFFFF" fontSize="8" fontWeight="bold" textAnchor="middle">C_RETL</text>
+                        <text x="560" y="279" fill="#FDE68A" fontSize="7" fontFamily="monospace" textAnchor="middle">#303</text>
+                      </g>
+
+                      <g className="cursor-pointer">
+                        <circle cx="340" cy="250" r="18" fill="#1E3A8A" stroke="#60A5FA" strokeWidth="2" />
+                        <text x="340" y="248" fill="#FFFFFF" fontSize="8" fontWeight="bold" textAnchor="middle">A_CARD</text>
+                        <text x="340" y="259" fill="#93C5FD" fontSize="7" fontFamily="monospace" textAnchor="middle">#902</text>
+                      </g>
+
+                      {/* Cashout Terminal Sink */}
+                      <g className="cursor-pointer">
+                        <circle cx="780" cy="110" r="24" fill="#881337" stroke="#F43F5E" strokeWidth="3" />
+                        <text x="780" y="108" fill="#FFFFFF" fontSize="9" fontWeight="extrabold" textAnchor="middle">C_RETL_302</text>
+                        <text x="780" y="120" fill="#FECDD3" fontSize="8" fontFamily="monospace" textAnchor="middle">ATM / Sink</text>
+                        <text x="780" y="148" fill="#FDA4AF" fontSize="9" fontWeight="bold" textAnchor="middle">🚨 Target Cashout</text>
+                      </g>
+
+                      {/* Benign nodes */}
+                      <circle cx="120" cy="220" r="14" fill="#334155" stroke="#64748B" strokeWidth="1.5" />
+                      <text x="120" y="224" fill="#94A3B8" fontSize="7" textAnchor="middle">A_105</text>
+                      <circle cx="120" cy="280" r="14" fill="#334155" stroke="#64748B" strokeWidth="1.5" />
+                      <text x="120" y="284" fill="#94A3B8" fontSize="7" textAnchor="middle">A_440</text>
+                      <circle cx="780" cy="260" r="14" fill="#334155" stroke="#64748B" strokeWidth="1.5" />
+                      <text x="780" y="264" fill="#94A3B8" fontSize="7" textAnchor="middle">C_700</text>
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Algorithmic Control Grid (BFS, DFS, A*) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* ALGORITHM 1: BFS Money Mule Layering */}
+                  <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="p-1.5 bg-sky-100 text-sky-800 rounded font-black text-xs">ALGO 1</span>
+                        <h4 className="text-sm font-black text-[#0F172A]">BFS — Money Mule Layering</h4>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        Breadth-First Search traverses level-by-level up to $K$ hops to identify rapid fund dispersion and layering across mule accounts.
+                      </p>
+
+                      <div className="space-y-2 pt-2">
+                        <label className="text-[11px] font-bold text-slate-700">Root Suspect Account:</label>
+                        <input
+                          type="text"
+                          value={bfsStartNode}
+                          onChange={(e) => setBfsStartNode(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-[11px] font-bold text-slate-700">
+                          <span>Max Traversal Depth:</span>
+                          <span className="font-mono text-indigo-700">{bfsMaxDepth} hops</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="4"
+                          value={bfsMaxDepth}
+                          onChange={(e) => setBfsMaxDepth(parseInt(e.target.value))}
+                          className="w-full accent-indigo-600"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleRunBFS}
+                      disabled={loadingBFS}
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs shadow-md transition disabled:opacity-50"
+                    >
+                      {loadingBFS ? "Traversing Levels..." : "▶ Run BFS Mule Trace"}
+                    </button>
+                  </div>
+
+                  {/* ALGORITHM 2: DFS Circular Wash Cycle Detection */}
+                  <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="p-1.5 bg-amber-100 text-amber-800 rounded font-black text-xs">ALGO 2</span>
+                        <h4 className="text-sm font-black text-[#0F172A]">DFS — Circular Laundering Cycles</h4>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        Depth-First Search utilizes an active recursion stack to catch back-edges that form closed wash-trading loops (A → B → C → A).
+                      </p>
+
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-1 text-amber-950 font-medium">
+                        <div className="font-bold">Cycle Detection Logic:</div>
+                        <div>Maintains 3-state coloring (Unvisited / Active Recursion / Finished) to isolate cyclic topologies in O(V + E) time.</div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleRunDFS}
+                      disabled={loadingDFS}
+                      className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shadow-md transition disabled:opacity-50"
+                    >
+                      {loadingDFS ? "Detecting Loops..." : "▶ Run DFS Cycle Finder"}
+                    </button>
+                  </div>
+
+                  {/* ALGORITHM 3: A* Informed Heuristic Search */}
+                  <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded font-black text-xs">ALGO 3</span>
+                        <h4 className="text-sm font-black text-[#0F172A]">A* vs Dijkstra Laundering Path</h4>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        Uses admissible cashout proximity heuristic <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">f(n) = g(n) + h(n)</code> to accelerate escape pathfinding vs uninformed Dijkstra.
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-700">Origin Account:</label>
+                          <input
+                            type="text"
+                            value={astarStartNode}
+                            onChange={(e) => setAstarStartNode(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-700">Target Cashout:</label>
+                          <input
+                            type="text"
+                            value={astarEndNode}
+                            onChange={(e) => setAstarEndNode(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleRunAStar}
+                      disabled={loadingAStar}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-md transition disabled:opacity-50"
+                    >
+                      {loadingAStar ? "Evaluating Heuristics..." : "▶ Compare A* & Dijkstra"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Live Algorithmic Output Results Panel */}
+                {(bfsResult || dfsResult || astarResult) && (
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 text-white space-y-4 shadow-md">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center space-x-2">
+                        <Terminal className="h-5 w-5 text-amber-400" />
+                        <h4 className="text-sm font-black text-amber-300">Live Algorithmic Execution Output</h4>
+                      </div>
+                      <span className="text-xs text-slate-400 font-mono">Status: Execution Verified</span>
+                    </div>
+
+                    {/* BFS Details */}
+                    {bfsResult && (
+                      <div className="space-y-3 bg-slate-800/60 p-4 rounded-lg border border-slate-700">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-sky-400">BFS Multi-Hop Result (Origin: {bfsResult.origin})</span>
+                          <span className="px-2 py-0.5 bg-sky-900/60 text-sky-200 border border-sky-500/30 text-[10px] font-mono rounded">
+                            {bfsResult.total_visited} Nodes Visited ({bfsResult.complexity})
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-slate-300">
+                          <strong className="text-white">Traversal Sequence: </strong>
+                          <span className="font-mono text-cyan-300">{bfsResult.traversal_sequence?.join(" ➔ ")}</span>
+                        </div>
+
+                        {bfsResult.flagged_mules?.length > 0 && (
+                          <div className="space-y-1.5 pt-2">
+                            <span className="text-xs font-bold text-rose-400">🚨 Identified Downstream Money Mules:</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                              {bfsResult.flagged_mules.map((m: any, idx: number) => (
+                                <div key={idx} className="bg-slate-900/80 p-2.5 rounded border border-rose-900/50 flex justify-between items-center">
+                                  <div>
+                                    <div className="font-mono font-bold text-rose-300">{m.account}</div>
+                                    <div className="text-[10px] text-slate-400">{m.bank} · Layer {m.layer}</div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-mono font-bold text-amber-400">${m.exposure_amount?.toLocaleString()}</div>
+                                    <div className="text-[10px] text-rose-400 font-bold">Fraud Prob: {m.fraud_score}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* DFS Details */}
+                    {dfsResult && (
+                      <div className="space-y-3 bg-slate-800/60 p-4 rounded-lg border border-slate-700">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-amber-400">DFS Circular Cycle Discovery</span>
+                          <span className="px-2 py-0.5 bg-amber-900/60 text-amber-200 border border-amber-500/30 text-[10px] font-mono rounded">
+                            {dfsResult.cycles_detected} Closed Cycles Found
+                          </span>
+                        </div>
+
+                        {dfsResult.cycles?.map((cyc: any, cIdx: number) => (
+                          <div key={cIdx} className="p-3 bg-slate-900/90 border border-amber-500/40 rounded space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-bold text-amber-300">{cyc.cycle_id}: {cyc.type}</span>
+                              <span className="px-2 py-0.5 bg-rose-600 text-white rounded text-[10px] font-bold">SEVERITY: {cyc.severity}</span>
+                            </div>
+                            <div className="text-xs font-mono text-cyan-300">
+                              {cyc.nodes?.join(" ➔ ")}
+                            </div>
+                            <div className="text-[11px] text-slate-400">
+                              Closed funds loop confirmed. Funds circulate back to origin party to fabricate velocity or clean transaction history.
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* A* vs Dijkstra Details */}
+                    {astarResult && (
+                      <div className="space-y-3 bg-slate-800/60 p-4 rounded-lg border border-slate-700">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-emerald-400">A* Search vs. Dijkstra Performance Benchmark</span>
+                          <span className="px-2 py-0.5 bg-emerald-900/60 text-emerald-200 border border-emerald-500/30 text-[10px] font-mono rounded">
+                            {astarResult.comparison?.heuristic_efficiency_gain}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                          {/* A* Card */}
+                          <div className="bg-slate-900/90 p-3 rounded border border-emerald-500/40 space-y-2">
+                            <div className="font-bold text-emerald-300 flex justify-between">
+                              <span>A* Informed Search:</span>
+                              <span className="font-mono text-emerald-400">{astarResult.astar?.nodes_expanded} Nodes Expanded</span>
+                            </div>
+                            <div className="text-slate-300 font-mono text-[11px]">
+                              Route: {astarResult.astar?.path?.join(" ➔ ")}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              Heuristic: {astarResult.astar?.heuristic_type}
+                            </div>
+                          </div>
+
+                          {/* Dijkstra Card */}
+                          <div className="bg-slate-900/90 p-3 rounded border border-slate-700 space-y-2">
+                            <div className="font-bold text-slate-300 flex justify-between">
+                              <span>Dijkstra (Uninformed):</span>
+                              <span className="font-mono text-slate-400">{astarResult.dijkstra?.nodes_expanded} Nodes Expanded</span>
+                            </div>
+                            <div className="text-slate-300 font-mono text-[11px]">
+                              Route: {astarResult.dijkstra?.path?.join(" ➔ ")}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              Exhaustively scans all directions without destination terminal guidance.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SUBTAB 2: FORENSIC HEURISTICS & BENFORD'S LAW */}
+            {algoTab === "heuristics" && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* HEURISTIC 1: Benford's Law Chi-Square Forensic Accounting */}
+                  <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="p-1.5 bg-purple-100 text-purple-800 rounded font-black text-xs">HEURISTIC 1</span>
+                        <h4 className="text-sm font-black text-[#0F172A]">Benford's Law Chi-Square Analyzer</h4>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        In natural commercial banking, the frequency of leading digit <code className="font-mono">d</code> follows <code className="font-mono">P(d) = log10(1 + 1/d)</code> (~30.1% start with digit 1). Automated fraudulent scripts fabricate unnatural amounts that fail the <code className="font-mono">Chi-Square (χ²)</code> test.
+                      </p>
+                    </div>
+
+                    <div className="flex space-x-3 pt-2">
+                      <button
+                        onClick={() => handleRunBenford(false)}
+                        disabled={loadingBenford}
+                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow transition disabled:opacity-50"
+                      >
+                        {loadingBenford && !benfordSynthetic ? "Testing..." : "Test Natural Transactions"}
+                      </button>
+                      <button
+                        onClick={() => handleRunBenford(true)}
+                        disabled={loadingBenford}
+                        className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow transition disabled:opacity-50"
+                      >
+                        {loadingBenford && benfordSynthetic ? "Injecting..." : "Inject Scripted Anomaly"}
+                      </button>
+                    </div>
+
+                    {/* Benford Output */}
+                    {benfordResult && (
+                      <div className="mt-4 p-4 bg-slate-900 rounded-xl text-white space-y-3 font-sans">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-300">Goodness-of-Fit Statistic:</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${
+                            benfordResult.is_anomalous ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"
+                          }`}>
+                            χ² = {benfordResult.chi_square_statistic} (Cutoff: {benfordResult.critical_threshold_p01})
+                          </span>
+                        </div>
+
+                        <div className={`p-2.5 rounded text-xs font-bold ${
+                          benfordResult.is_anomalous ? "bg-rose-950/70 border border-rose-800 text-rose-300" : "bg-emerald-950/70 border border-emerald-800 text-emerald-300"
+                        }`}>
+                          {benfordResult.risk_level}: {benfordResult.explanation}
+                        </div>
+
+                        {/* Digit Distribution Comparison Bars */}
+                        <div className="space-y-1.5 pt-2">
+                          <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                            <span>Digit</span>
+                            <span>Observed % (Bars) vs Expected Benford % (Marker)</span>
+                          </div>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => {
+                            const obs = (benfordResult.observed_distribution?.[d] || 0) * 100;
+                            const exp = (benfordResult.expected_distribution?.[d] || 0) * 100;
+                            return (
+                              <div key={d} className="flex items-center space-x-2 text-xs">
+                                <span className="w-4 font-mono font-bold text-amber-300">{d}</span>
+                                <div className="flex-1 bg-slate-800 rounded-full h-3 relative overflow-hidden">
+                                  <div
+                                    className={`h-full ${benfordResult.is_anomalous ? "bg-rose-500" : "bg-emerald-500"}`}
+                                    style={{ width: `${Math.min(obs * 2, 100)}%` }}
+                                  ></div>
+                                </div>
+                                <span className="w-24 text-[10px] font-mono text-slate-300 text-right">
+                                  {obs.toFixed(1)}% (Exp: {exp.toFixed(1)}%)
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* HEURISTIC 2: Smurfing & Structuring Heuristic AML */}
+                  <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="p-1.5 bg-blue-100 text-blue-800 rounded font-black text-xs">HEURISTIC 2</span>
+                        <h4 className="text-sm font-black text-[#0F172A]">AML Smurfing & Structuring Detector</h4>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        Detects intentional structuring where transactions are engineered right below reporting limits (e.g., transfers of <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">$9,200 to $9,950</code> to avoid the $10,000 regulatory AML audit threshold).
+                      </p>
+                    </div>
+
+                    <div className="flex space-x-3 pt-2">
+                      <button
+                        onClick={() => handleRunSmurfing("smurfed")}
+                        disabled={loadingSmurfing}
+                        className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow transition disabled:opacity-50"
+                      >
+                        {loadingSmurfing && smurfingSampleType === "smurfed" ? "Auditing..." : "Audit Smurfed Batch ($9k+)"}
+                      </button>
+                      <button
+                        onClick={() => handleRunSmurfing("normal")}
+                        disabled={loadingSmurfing}
+                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow transition disabled:opacity-50"
+                      >
+                        {loadingSmurfing && smurfingSampleType === "normal" ? "Auditing..." : "Audit Benign Transfers"}
+                      </button>
+                    </div>
+
+                    {/* Smurfing Output */}
+                    {smurfingResult && (
+                      <div className="mt-4 p-4 bg-slate-900 rounded-xl text-white space-y-3 font-sans">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-300">Monitored Threshold Band:</span>
+                          <span className="font-mono text-amber-300 font-bold text-xs">{smurfingResult.monitored_band}</span>
+                        </div>
+
+                        <div className={`p-2.5 rounded text-xs font-bold flex justify-between items-center ${
+                          smurfingResult.structuring_detected ? "bg-rose-950/70 border border-rose-800 text-rose-300" : "bg-emerald-950/70 border border-emerald-800 text-emerald-300"
+                        }`}>
+                          <span>{smurfingResult.structuring_detected ? "🚨 Structuring Violation Flagged!" : "✅ No Structuring Detected"}</span>
+                          <span className="px-2 py-0.5 rounded bg-black/40 text-[10px] font-mono">{smurfingResult.heuristic_action}</span>
+                        </div>
+
+                        <div className="space-y-1.5 pt-1">
+                          <div className="text-[11px] font-bold text-slate-400">Flagged Transaction Sequence:</div>
+                          {smurfingResult.flagged_transactions?.map((tx: any, idx: number) => (
+                            <div key={idx} className="p-2 bg-slate-800 rounded flex justify-between items-center text-xs font-mono">
+                              <div>
+                                <span className="font-bold text-cyan-300">{tx.tx_id}</span>
+                                <span className="text-slate-400 text-[10px] ml-2">({tx.sender} ➔ {tx.receiver})</span>
+                              </div>
+                              <span className="font-bold text-rose-400">${tx.amount?.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUBTAB 3: SIMULATED ANNEALING CLIENT WEIGHT OPTIMIZATION */}
+            {algoTab === "annealing" && (
+              <div className="space-y-6">
+                <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="p-1.5 bg-amber-100 text-amber-800 rounded font-black text-xs">META-HEURISTIC</span>
+                      <h4 className="text-sm font-black text-[#0F172A]">Simulated Annealing FL Client Weight Optimizer</h4>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      Standard FedAvg assigns client weights based strictly on sample size. When banks present heterogeneous latency and anomaly risk, a <strong>Simulated Annealing</strong> cooling schedule explores client combinations to maximize PR-AUC while penalizing latency and Frobenius norm deviation.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                    <div className="flex space-x-4 text-xs font-bold text-slate-700">
+                      <span>Initial Temp: <strong className="font-mono text-indigo-700">T₀ = 100.0</strong></span>
+                      <span>Cooling Rate: <strong className="font-mono text-indigo-700">α = 0.92</strong></span>
+                      <span>Max Iterations: <strong className="font-mono text-indigo-700">150 steps</strong></span>
+                    </div>
+
+                    <button
+                      onClick={handleRunSA}
+                      disabled={loadingSA}
+                      className="px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-bold text-xs shadow-md transition disabled:opacity-50"
+                    >
+                      {loadingSA ? "Annealing Cooling Schedule..." : "▶ Run Simulated Annealing"}
+                    </button>
+                  </div>
+
+                  {/* SA Output */}
+                  {saResult && (
+                    <div className="mt-4 p-5 bg-slate-900 rounded-xl text-white space-y-4 font-sans">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <span className="text-xs font-bold text-amber-300">Optimal Aggregation Weights Converged</span>
+                        <span className="px-2.5 py-0.5 bg-indigo-900/60 text-indigo-200 border border-indigo-500/30 text-xs font-mono rounded">
+                          Best Fitness Score: {saResult.best_fitness_score}
+                        </span>
+                      </div>
+
+                      {/* Client Weight Bars */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {Object.entries(saResult.optimized_client_weights || {}).map(([bankName, weight]: [string, any], idx) => (
+                          <div key={idx} className="bg-slate-800 p-3.5 rounded-lg border border-slate-700 space-y-2">
+                            <div className="text-xs font-bold text-slate-200 truncate">{bankName}</div>
+                            <div className="text-xl font-black font-mono text-amber-400">
+                              {(weight * 100).toFixed(1)}%
+                            </div>
+                            <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
+                              <div
+                                className="h-full bg-amber-500 rounded-full"
+                                style={{ width: `${Math.min(weight * 100, 100)}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Cooling Steps Table */}
+                      <div className="space-y-2 pt-2">
+                        <div className="text-xs font-bold text-slate-300">Cooling Trajectory Samples:</div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs font-mono text-slate-300">
+                            <thead>
+                              <tr className="border-b border-slate-800 text-slate-500 font-bold">
+                                <th className="py-1 px-2">Step</th>
+                                <th className="py-1 px-2">Temperature (T)</th>
+                                <th className="py-1 px-2">Fitness Score</th>
+                                <th className="py-1 px-2">State Weights [Bank A, B, C]</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {saResult.cooling_history?.map((h: any, sIdx: number) => (
+                                <tr key={sIdx} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                                  <td className="py-1 px-2 font-bold text-indigo-400">#{h.step}</td>
+                                  <td className="py-1 px-2 text-slate-400">{h.temp}°</td>
+                                  <td className="py-1 px-2 text-amber-300">{h.fitness}</td>
+                                  <td className="py-1 px-2 text-cyan-300 font-mono">[{h.weights.join(", ")}]</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
