@@ -151,7 +151,7 @@ export default function App() {
   const [verifyingHash, setVerifyingHash] = useState(false);
 
   // Page 6: AI & Heuristic Algorithms State
-  const [algoTab, setAlgoTab] = useState<"graph" | "heuristics" | "annealing">("graph");
+  const [algoTab, setAlgoTab] = useState<"graph" | "heuristics" | "annealing" | "bayesian">("graph");
   const [graphTopology, setGraphTopology] = useState<any>(null);
   const [bfsStartNode, setBfsStartNode] = useState("A_CARD_901");
   const [bfsMaxDepth, setBfsMaxDepth] = useState(3);
@@ -176,6 +176,14 @@ export default function App() {
 
   const [saResult, setSaResult] = useState<any>(null);
   const [loadingSA, setLoadingSA] = useState(false);
+
+  // Bayesian Network State
+  const [bayesianEvidence, setBayesianEvidence] = useState<Record<string, string>>({
+    TimeRisk: "ODD_HOURS",
+    ChannelRisk: "HIGH_RISK"
+  });
+  const [bayesianResult, setBayesianResult] = useState<any>(null);
+  const [loadingBayesian, setLoadingBayesian] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -394,43 +402,67 @@ export default function App() {
     }
   };
 
+  const handleRunBayesianQuery = async (customEvidence?: Record<string, string>) => {
+    setLoadingBayesian(true);
+    const targetEvidence = customEvidence !== undefined ? customEvidence : bayesianEvidence;
+    try {
+      const res = await api.runBayesianQuery(targetEvidence);
+      setBayesianResult(res);
+    } catch (err: any) {
+      alert("Bayesian query failed: " + err.message);
+    } finally {
+      setLoadingBayesian(false);
+    }
+  };
+
+  const toggleEvidence = (varName: string, stateValue: string) => {
+    const updated = { ...bayesianEvidence };
+    if (updated[varName] === stateValue) {
+      delete updated[varName];
+    } else {
+      updated[varName] = stateValue;
+    }
+    setBayesianEvidence(updated);
+    handleRunBayesianQuery(updated);
+  };
+
+
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans">
-      {/* Top Navigation */}
-      <header className="border-b border-slate-200 bg-white sticky top-0 z-50 px-6 py-4 flex items-center justify-between shadow-sm">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      {/* Top Navigation Header */}
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-50 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-gradient-to-tr from-amber-600 to-amber-500 rounded-xl shadow-md shadow-amber-500/20">
-            <Shield className="h-6 w-6 text-white" />
+          <div className="p-2 bg-slate-900 text-white rounded-lg">
+            <Shield className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-bold tracking-tight text-[#0F172A]">CrossBank TrustFL</h1>
-              <span className="px-2 py-0.5 text-[10px] bg-amber-500 text-white rounded font-bold uppercase tracking-wider">
+              <h1 className="text-base font-semibold tracking-tight text-slate-900">CrossBank TrustFL</h1>
+              <span className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 rounded">
                 Live Prototype
               </span>
             </div>
-            <p className="text-xs text-slate-600">Privacy-Preserving Federated Learning & Blockchain Audit for Multi-Bank Fraud Detection</p>
+            <p className="text-xs text-slate-500">Privacy-Preserving Federated Learning & Blockchain Audit</p>
           </div>
         </div>
 
         {/* Backend & Chain Status Badges */}
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 bg-emerald-100 border border-emerald-300 rounded-full px-3.5 py-1.5 shadow-sm">
-            <span className={`w-2.5 h-2.5 rounded-full ${backendOnline ? "bg-emerald-600 animate-pulse" : "bg-rose-600"}`}></span>
-            <span className="text-xs font-bold text-emerald-900">
-              Backend: {backendOnline ? "Live (FastAPI :8000)" : "Connecting..."}
-            </span>
+        <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-2 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-1 text-xs font-medium text-emerald-800">
+            <span className={`w-2 h-2 rounded-full ${backendOnline ? "bg-emerald-600" : "bg-rose-600"}`}></span>
+            <span>Backend: {backendOnline ? "Online (:8000)" : "Connecting..."}</span>
           </div>
 
-          <div className="flex items-center space-x-2 bg-amber-100 border border-amber-300 rounded-full px-3.5 py-1.5 shadow-sm">
-            <Lock className="w-3.5 h-3.5 text-amber-900" />
-            <span className="text-xs font-bold text-amber-950">Solidity EVM On-Chain</span>
+          <div className="flex items-center space-x-1.5 bg-slate-100 border border-slate-200 rounded-md px-3 py-1 text-xs font-medium text-slate-700">
+            <Lock className="w-3.5 h-3.5 text-slate-500" />
+            <span>Solidity EVM On-Chain</span>
           </div>
 
           <button
             onClick={() => { refreshLiveStatus(); loadInitialData(); }}
-            className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition shadow-sm"
-            title="Refresh from Backend"
+            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-md transition"
+            title="Refresh Live Data"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -438,14 +470,14 @@ export default function App() {
       </header>
 
       {/* Main Tabs Navigation */}
-      <div className="border-b border-slate-200 bg-white px-6 flex space-x-2 shadow-sm">
+      <div className="border-b border-slate-200 bg-white px-6 flex space-x-1">
         {[
-          { id: "overview", label: "Page 1 — Overview Dashboard", icon: Activity },
-          { id: "training", label: "Page 2 — Federated Learning", icon: Cpu },
-          { id: "fraud", label: "Page 3 — Fraud Explorer", icon: Search },
-          { id: "security", label: "Page 4 — Trust & Security", icon: ShieldAlert },
-          { id: "audit", label: "Page 5 — Blockchain Audit", icon: Layers },
-          { id: "algorithms", label: "Page 6 — AI & Heuristics Lab", icon: Network }
+          { id: "overview", label: "Overview", icon: Activity },
+          { id: "training", label: "Federated Learning", icon: Cpu },
+          { id: "fraud", label: "Fraud Explorer", icon: Search },
+          { id: "security", label: "Trust & Security", icon: ShieldAlert },
+          { id: "audit", label: "Blockchain Audit", icon: Layers },
+          { id: "algorithms", label: "Algorithms & Heuristics", icon: Network }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -453,10 +485,10 @@ export default function App() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center space-x-2 px-5 py-3.5 text-xs font-bold border-b-2 transition ${
+              className={`flex items-center space-x-2 px-4 py-3 text-xs font-medium border-b-2 transition ${
                 isActive
-                  ? "border-amber-600 text-amber-900 bg-amber-50"
-                  : "border-transparent text-slate-600 hover:text-[#0F172A] hover:bg-slate-50"
+                  ? "border-slate-900 text-slate-900"
+                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -469,143 +501,129 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
 
-        {/* =========================================================================
-            PAGE 1 — OVERVIEW DASHBOARD
-            ========================================================================= */}
+        {/* PAGE 1 — OVERVIEW DASHBOARD */}
         {activeTab === "overview" && (
           <div className="space-y-6">
-            {/* Live Indicator Banner */}
-            <div className="p-4 bg-gradient-to-r from-amber-100 via-yellow-100 to-emerald-100 border-2 border-amber-300 rounded-xl flex items-center justify-between text-xs text-amber-950 shadow-sm">
+            {/* Minimalist Architecture Banner */}
+            <div className="p-4 bg-white border border-slate-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-700 shadow-xs">
               <span className="flex items-center space-x-2.5">
-                <CheckCircle2 className="h-5 w-5 text-amber-700" />
-                <span className="font-medium text-sm"><strong>Core Architecture:</strong> 3 banks train local models on private datasets and share only weight updates (not raw transactions) securely via smart contracts.</span>
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span><strong>Federated Architecture:</strong> 3 banks train local models on private datasets and share only serialized weight gradients securely via EVM smart contracts.</span>
               </span>
-              <span className="px-3 py-1.5 bg-emerald-700 text-white rounded-lg font-mono font-bold text-xs shadow-sm">100% Privacy Preserved</span>
+              <span className="px-2.5 py-1 bg-slate-100 text-slate-800 border border-slate-200 rounded font-mono text-[11px] font-medium shrink-0">
+                100% Privacy Preserved
+              </span>
             </div>
 
-            {/* Stat Cards with Rich, High-Contrast Colorful Backgrounds */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-              <div className="p-5 bg-gradient-to-br from-amber-100 to-amber-50 border-2 border-amber-300 rounded-xl shadow-sm">
-                <div className="flex items-center justify-between text-amber-900 text-xs font-bold uppercase tracking-wider">
-                  <span>Current Global Round</span>
-                  <Activity className="h-5 w-5 text-amber-700" />
+            {/* Stat Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="p-5 bg-white border border-slate-200 rounded-lg shadow-xs">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
+                  <span>Current Round</span>
+                  <Activity className="h-4 w-4 text-slate-400" />
                 </div>
-                <div className="mt-2 text-3xl font-extrabold text-[#0F172A]">Round {status?.current_round ?? 0}</div>
-                <div className="mt-2 flex items-center space-x-1.5 text-xs text-emerald-800 font-bold bg-emerald-200/60 px-2 py-0.5 rounded w-fit">
-                  <Check className="h-3.5 w-3.5" />
-                  <span>Consensus converged</span>
-                </div>
+                <div className="mt-2 text-2xl font-semibold text-slate-900">Round {status?.current_round ?? 0}</div>
+                <div className="mt-2 text-xs text-emerald-700 font-medium">Consensus converged</div>
               </div>
 
-              <div className="p-5 bg-gradient-to-br from-sky-100 to-sky-50 border-2 border-sky-300 rounded-xl shadow-sm">
-                <div className="flex items-center justify-between text-sky-900 text-xs font-bold uppercase tracking-wider">
+              <div className="p-5 bg-white border border-slate-200 rounded-lg shadow-xs">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
                   <span>Participating Banks</span>
-                  <Database className="h-5 w-5 text-sky-700" />
+                  <Database className="h-4 w-4 text-slate-400" />
                 </div>
-                <div className="mt-2 text-3xl font-extrabold text-[#0F172A]">3 Nodes</div>
-                <p className="mt-1 text-xs text-sky-900 font-medium">Bank A, Bank B, Bank C</p>
+                <div className="mt-2 text-2xl font-semibold text-slate-900">3 Nodes</div>
+                <p className="mt-1 text-xs text-slate-500">Bank A, Bank B, Bank C</p>
               </div>
 
-              <div className="p-5 bg-gradient-to-br from-yellow-100 to-amber-50 border-2 border-yellow-300 rounded-xl shadow-sm">
-                <div className="flex items-center justify-between text-yellow-900 text-xs font-bold uppercase tracking-wider">
-                  <span>On-Chain Audited Rounds</span>
-                  <Layers className="h-5 w-5 text-amber-800" />
+              <div className="p-5 bg-white border border-slate-200 rounded-lg shadow-xs">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
+                  <span>Audited Rounds</span>
+                  <Layers className="h-4 w-4 text-slate-400" />
                 </div>
-                <div className="mt-2 text-3xl font-extrabold text-[#0F172A]">{status?.total_audited_rounds ?? 0} Committed</div>
-                <p className="mt-1 text-xs text-yellow-900 font-medium">Stored on FraudAudit.sol</p>
+                <div className="mt-2 text-2xl font-semibold text-slate-900">{status?.total_audited_rounds ?? 0} Committed</div>
+                <p className="mt-1 text-xs text-slate-500">Stored on FraudAudit.sol</p>
               </div>
 
-              <div className="p-5 bg-gradient-to-br from-emerald-100 to-emerald-50 border-2 border-emerald-300 rounded-xl shadow-sm">
-                <div className="flex items-center justify-between text-emerald-900 text-xs font-bold uppercase tracking-wider">
-                  <span>Active Model Size</span>
-                  <Cpu className="h-5 w-5 text-emerald-700" />
+              <div className="p-5 bg-white border border-slate-200 rounded-lg shadow-xs">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
+                  <span>Global Architecture</span>
+                  <Cpu className="h-4 w-4 text-slate-400" />
                 </div>
-                <div className="mt-2 text-3xl font-extrabold text-emerald-950">3,393 Weights</div>
-                <p className="mt-1 text-xs text-emerald-900 font-medium">16-dim Universal MLP</p>
+                <div className="mt-2 text-2xl font-semibold text-slate-900">3,393 Weights</div>
+                <p className="mt-1 text-xs text-slate-500">16-D Standardized MLP</p>
               </div>
             </div>
 
             {/* Global Model Fingerprint Card */}
-            <div className="p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 border-2 border-amber-600/50 rounded-xl space-y-3 shadow-lg text-white">
+            <div className="p-5 bg-white border border-slate-200 rounded-lg space-y-2.5 shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-300">Active Global Model Fingerprint (SHA-256)</span>
-                <span className="px-3 py-1 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs shadow">
+                <span className="text-xs font-medium uppercase tracking-wider text-slate-500">Active Global Model Fingerprint (SHA-256)</span>
+                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium rounded text-xs">
                   Verified On-Chain
                 </span>
               </div>
-              <div className="p-3.5 bg-black/70 border border-amber-500/40 rounded-lg font-mono text-xs text-amber-400 break-all select-all shadow-inner">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-md font-mono text-xs text-slate-800 break-all select-all">
                 {status?.active_global_model_hash ?? "Loading live model hash..."}
               </div>
             </div>
 
-            {/* Participating Bank Cards with Rich, Distinct Background Colors */}
+            {/* Participating Bank Cards */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-[#0F172A]">Three Participating Simulated Banks</h2>
-                <span className="text-xs text-emerald-900 font-bold bg-emerald-100 border border-emerald-300 px-3.5 py-1.5 rounded-xl shadow-sm">
-                  🛡️ Raw transaction datasets remain 100% private locally
-                </span>
+                <h2 className="text-sm font-semibold text-slate-900">Participating Bank Clients</h2>
+                <span className="text-xs text-slate-600 font-medium">Raw transaction datasets remain strictly private</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {banks.map((b, idx) => {
-                  const cardStyles = [
-                    "bg-gradient-to-br from-sky-100 via-white to-white border-2 border-sky-300 shadow-sm",
-                    "bg-gradient-to-br from-amber-100 via-white to-white border-2 border-amber-300 shadow-sm",
-                    "bg-gradient-to-br from-purple-100 via-white to-white border-2 border-purple-300 shadow-sm"
-                  ];
-                  return (
-                    <div key={b.id} className={`p-6 rounded-xl space-y-3 ${cardStyles[idx % cardStyles.length]}`}>
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-[#0F172A] text-sm">{b.name}</span>
-                        <span className="px-3 py-0.5 text-xs bg-emerald-600 text-white rounded-full font-bold shadow-sm">
-                          {b.status}
-                        </span>
-                      </div>
-                      <div className="text-xs text-slate-700 font-semibold">{b.dataset_source}</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {banks.map((b) => (
+                  <div key={b.id} className="p-5 bg-white border border-slate-200 rounded-lg space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-900 text-sm">{b.name}</span>
+                      <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-700 border border-slate-200 rounded font-medium">
+                        {b.status}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500">{b.dataset_source}</div>
 
-                      <div className="space-y-2 text-xs pt-3 border-t border-slate-300 font-mono">
-                        <div className="flex justify-between">
-                          <span className="text-slate-600 font-sans font-medium">Private Records:</span>
-                          <span className="text-[#0F172A] font-bold">{b.records.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600 font-sans font-medium">Fraud Cases:</span>
-                          <span className="text-rose-700 font-bold">{b.fraud_count.toLocaleString()} ({b.fraud_rate_pct}%)</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600 font-sans font-medium">Shared Updates:</span>
-                          <span className="text-amber-900 font-bold">Weights Only</span>
-                        </div>
+                    <div className="space-y-1.5 text-xs pt-3 border-t border-slate-100 font-mono">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500 font-sans">Private Records:</span>
+                        <span className="text-slate-900 font-semibold">{b.records.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500 font-sans">Fraud Cases:</span>
+                        <span className="text-rose-600 font-semibold">{b.fraud_count.toLocaleString()} ({b.fraud_rate_pct}%)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500 font-sans">Transmitted Data:</span>
+                        <span className="text-slate-800 font-semibold">Model Weights Only</span>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         )}
 
-        {/* =========================================================================
-            PAGE 2 — FEDERATED LEARNING CONSOLE
-            ========================================================================= */}
+        {/* PAGE 2 — FEDERATED LEARNING */}
         {activeTab === "training" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Control: Start Training Round */}
-            <div className="lg:col-span-1 p-6 bg-gradient-to-br from-amber-100 via-yellow-50 to-white border-2 border-amber-300 rounded-xl space-y-5 shadow-sm">
+            {/* Control Panel */}
+            <div className="lg:col-span-1 p-5 bg-white border border-slate-200 rounded-lg space-y-4 shadow-xs">
               <div>
-                <h2 className="text-base font-bold text-[#0F172A] flex items-center space-x-2">
-                  <Play className="h-5 w-5 text-amber-700" />
+                <h2 className="text-sm font-semibold text-slate-900 flex items-center space-x-2">
+                  <Play className="h-4 w-4 text-slate-700" />
                   <span>Start Training Round</span>
                 </h2>
-                <p className="text-xs text-slate-700 mt-1 font-medium">
-                  Triggers local client training across all 3 banks, runs coordinator defense screening, and updates the global model on-chain without exposing private data.
+                <p className="text-xs text-slate-500 mt-1">
+                  Triggers local client training across all 3 banks, runs coordinator defense screening, and updates the global model on-chain.
                 </p>
               </div>
 
-              <div className="space-y-4 text-xs">
+              <div className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-slate-900 font-bold mb-1">Round ID to Train</label>
+                  <label className="block text-slate-700 font-medium mb-1">Round ID to Train</label>
                   <input
                     type="number"
                     value={isNaN(trainRoundId) ? "" : trainRoundId}
@@ -613,16 +631,16 @@ export default function App() {
                       const v = parseInt(e.target.value, 10);
                       setTrainRoundId(isNaN(v) ? 0 : v);
                     }}
-                    className="w-full bg-white border-2 border-slate-300 rounded-lg px-3 py-2.5 text-[#0F172A] font-mono font-bold focus:outline-none focus:border-amber-600 shadow-sm"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-slate-900 font-mono font-medium focus:outline-none focus:border-slate-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-900 font-bold mb-1">Defense & Aggregation Strategy</label>
+                  <label className="block text-slate-700 font-medium mb-1">Defense & Aggregation Strategy</label>
                   <select
                     value={trainDefense}
                     onChange={(e) => setTrainDefense(e.target.value)}
-                    className="w-full bg-white border-2 border-slate-300 rounded-lg px-3 py-2.5 text-[#0F172A] font-medium focus:outline-none focus:border-amber-600 shadow-sm"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-slate-900 font-medium focus:outline-none focus:border-slate-900"
                   >
                     <option value="fedavg">Sample-Weighted FedAvg (Standard)</option>
                     <option value="coordinate_median">Coordinate-wise Median (Byzantine-Robust)</option>
@@ -630,11 +648,11 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-900 font-bold mb-1">Local Training Epochs</label>
+                  <label className="block text-slate-700 font-medium mb-1">Local Training Epochs</label>
                   <select
                     value={trainEpochs}
                     onChange={(e) => setTrainEpochs(parseInt(e.target.value))}
-                    className="w-full bg-white border-2 border-slate-300 rounded-lg px-3 py-2.5 text-[#0F172A] font-medium focus:outline-none focus:border-amber-600 shadow-sm"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-slate-900 font-medium focus:outline-none focus:border-slate-900"
                   >
                     <option value={1}>1 Local Epoch</option>
                     <option value={2}>2 Local Epochs</option>
@@ -644,50 +662,50 @@ export default function App() {
                 <button
                   onClick={handleStartTraining}
                   disabled={loading || trainingStatus?.status === "RUNNING"}
-                  className={`w-full py-3.5 rounded-xl font-extrabold text-xs uppercase tracking-wider transition flex items-center justify-center space-x-2 shadow-md ${
+                  className={`w-full py-2.5 rounded-md font-medium text-xs transition flex items-center justify-center space-x-1.5 ${
                     trainingStatus?.status === "RUNNING"
-                      ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                      : "bg-amber-600 hover:bg-amber-500 text-white"
+                      ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
+                      : "bg-slate-900 hover:bg-slate-800 text-white"
                   }`}
                 >
-                  <Play className="h-4 w-4" />
+                  <Play className="h-3.5 w-3.5" />
                   <span>{trainingStatus?.status === "RUNNING" ? "Round In Progress..." : "Execute Training Round"}</span>
                 </button>
               </div>
 
-              <div className="p-4 bg-white border-2 border-amber-200 rounded-xl text-xs space-y-1.5 font-mono shadow-sm">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-md text-xs space-y-1 font-mono">
                 <div className="flex justify-between">
-                  <span className="text-slate-600 font-bold">Coordinator Status:</span>
-                  <span className="text-amber-800 font-extrabold">{trainingStatus?.status ?? "IDLE"}</span>
+                  <span className="text-slate-500 font-sans">Coordinator Status:</span>
+                  <span className="text-slate-900 font-medium">{trainingStatus?.status ?? "IDLE"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600 font-bold">Progress:</span>
-                  <span className="text-[#0F172A] font-extrabold">{trainingStatus?.progress_percent ?? 0}%</span>
+                  <span className="text-slate-500 font-sans">Progress:</span>
+                  <span className="text-slate-900 font-medium">{trainingStatus?.progress_percent ?? 0}%</span>
                 </div>
               </div>
             </div>
 
             {/* Live Progress & Log Stream */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="p-6 bg-gradient-to-br from-emerald-100 via-white to-white border-2 border-emerald-300 rounded-xl space-y-4 shadow-sm">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="p-5 bg-white border border-slate-200 rounded-lg space-y-3 shadow-xs">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">Round Progression</h3>
-                    <p className="text-xs text-slate-700 font-medium mt-0.5">{trainingStatus?.current_step ?? "Idle — Ready for federation round"}</p>
+                    <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">Round Progression</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">{trainingStatus?.current_step ?? "Idle — Ready for federation round"}</p>
                   </div>
-                  <span className="px-3 py-1.5 text-xs rounded-full font-extrabold bg-emerald-700 text-white shadow-sm">
+                  <span className="px-2.5 py-1 text-xs rounded font-medium bg-slate-100 text-slate-800 border border-slate-200">
                     {trainingStatus?.progress_percent ?? 0}% Completed
                   </span>
                 </div>
 
-                <div className="w-full bg-slate-200 h-3 rounded-full overflow-hidden shadow-inner">
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                   <div
-                    className="bg-gradient-to-r from-amber-500 to-emerald-600 h-full transition-all duration-300"
+                    className="bg-slate-900 h-full transition-all duration-300"
                     style={{ width: `${trainingStatus?.progress_percent ?? 0}%` }}
                   ></div>
                 </div>
 
-                <div className="grid grid-cols-4 text-center text-[11px] text-slate-800 pt-1 font-bold">
+                <div className="grid grid-cols-4 text-center text-[11px] text-slate-500 pt-1 font-medium">
                   <div>1. Local Training</div>
                   <div>2. Defense Screen</div>
                   <div>3. Parameter Aggregation</div>
@@ -696,20 +714,20 @@ export default function App() {
               </div>
 
               {/* Terminal Logs */}
-              <div className="p-5 bg-slate-950 border-2 border-slate-800 rounded-xl font-mono text-xs text-slate-200 space-y-2 shadow-xl">
-                <div className="flex items-center space-x-2 text-amber-400 pb-2 border-b border-slate-800">
+              <div className="p-4 bg-slate-950 border border-slate-800 rounded-lg font-mono text-xs text-slate-300 space-y-2">
+                <div className="flex items-center space-x-2 text-slate-400 pb-2 border-b border-slate-800">
                   <Terminal className="h-4 w-4" />
-                  <span className="font-bold text-white">Live Training & Defense Execution Log</span>
+                  <span className="font-medium text-slate-200">Execution Telemetry & Defense Log</span>
                 </div>
                 <div className="h-64 overflow-y-auto space-y-1.5 pt-2 text-slate-300">
                   {trainingStatus?.logs && trainingStatus.logs.length > 0 ? (
                     trainingStatus.logs.map((log: string, idx: number) => (
                       <div key={idx} className="leading-relaxed">
-                        <span className="text-amber-400 font-bold">[{idx + 1}]</span> {log}
+                        <span className="text-slate-500 font-medium">[{idx + 1}]</span> {log}
                       </div>
                     ))
                   ) : (
-                    <div className="text-slate-500 italic">No training in progress. Click 'Execute Training Round' to trigger.</div>
+                    <div className="text-slate-500 italic">No training active. Click 'Execute Training Round' to trigger.</div>
                   )}
                 </div>
               </div>
@@ -717,28 +735,26 @@ export default function App() {
           </div>
         )}
 
-        {/* =========================================================================
-            PAGE 3 — FRAUD EXPLORER & DATASET EVALUATION
-            ========================================================================= */}
+        {/* PAGE 3 — FRAUD EXPLORER */}
         {activeTab === "fraud" && (
           <div className="space-y-6">
-            <div className="p-6 bg-gradient-to-br from-indigo-100 via-white to-white border-2 border-indigo-300 rounded-xl space-y-4 shadow-sm">
+            <div className="p-5 bg-white border border-slate-200 rounded-lg space-y-4 shadow-xs">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-bold text-[#0F172A] flex items-center space-x-2">
-                    <BarChart3 className="h-5 w-5 text-indigo-700" />
-                    <span>Evaluate Global Model on Labelled Test Dataset</span>
+                  <h2 className="text-sm font-semibold text-slate-900 flex items-center space-x-2">
+                    <BarChart3 className="h-4 w-4 text-slate-700" />
+                    <span>Evaluate Global Model on Labelled Test Split</span>
                   </h2>
-                  <p className="text-xs text-slate-700 font-medium mt-0.5">
-                    Evaluates the collaborative Global MLP across held-out test splits, combining knowledge from all 3 banks without sharing raw records.
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Evaluates the collaborative Global MLP across held-out test splits from Bank A, Bank B, or Bank C.
                   </p>
                 </div>
 
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2.5">
                   <select
                     value={chosenDatasetKey}
                     onChange={(e) => setChosenDatasetKey(e.target.value)}
-                    className="bg-white border-2 border-slate-300 rounded-lg px-3.5 py-2 text-xs text-[#0F172A] font-bold focus:outline-none focus:border-indigo-600 shadow-sm"
+                    className="bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-medium focus:outline-none focus:border-slate-900"
                   >
                     <option value="bank_a">Bank A (Credit Card Test Split)</option>
                     <option value="bank_b">Bank B (PaySim Mobile Test Split)</option>
@@ -748,49 +764,49 @@ export default function App() {
                   <button
                     onClick={handleEvaluateDataset}
                     disabled={evaluatingDataset}
-                    className="px-5 py-2.5 bg-indigo-700 hover:bg-indigo-600 text-white font-extrabold text-xs rounded-lg transition shadow-md shadow-indigo-500/20"
+                    className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-md transition"
                   >
-                    {evaluatingDataset ? "Evaluating on Disk..." : "Run Test Set Evaluation"}
+                    {evaluatingDataset ? "Evaluating on Disk..." : "Run Evaluation"}
                   </button>
                 </div>
               </div>
 
               {datasetEvalResult && (
-                <div className="p-5 bg-white border-2 border-indigo-300 rounded-xl space-y-4 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-sm text-indigo-950">{datasetEvalResult.dataset_name}</span>
-                    <span className="text-xs font-mono font-bold text-slate-600">
-                      Evaluated: {datasetEvalResult.evaluated_samples.toLocaleString()} transactions ({datasetEvalResult.actual_frauds_in_test} frauds)
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-900">{datasetEvalResult.dataset_name}</span>
+                    <span className="font-mono text-slate-500">
+                      Evaluated {datasetEvalResult.evaluated_samples.toLocaleString()} records ({datasetEvalResult.actual_frauds_in_test} frauds)
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono">
-                    <div className="p-3.5 bg-amber-100 border-2 border-amber-300 rounded-xl text-center shadow-sm">
-                      <div className="text-[10px] text-amber-900 font-sans uppercase font-extrabold">PR-AUC</div>
-                      <div className="text-lg font-black text-amber-950 mt-1">{datasetEvalResult.pr_auc}</div>
+                    <div className="p-3 bg-white border border-slate-200 rounded-md text-center">
+                      <div className="text-[10px] text-slate-500 font-sans uppercase font-medium">PR-AUC</div>
+                      <div className="text-lg font-semibold text-slate-900 mt-0.5">{datasetEvalResult.pr_auc}</div>
                     </div>
-                    <div className="p-3.5 bg-slate-100 border-2 border-slate-300 rounded-xl text-center shadow-sm">
-                      <div className="text-[10px] text-slate-700 font-sans uppercase font-extrabold">ROC-AUC</div>
-                      <div className="text-lg font-black text-[#0F172A] mt-1">{datasetEvalResult.roc_auc}</div>
+                    <div className="p-3 bg-white border border-slate-200 rounded-md text-center">
+                      <div className="text-[10px] text-slate-500 font-sans uppercase font-medium">ROC-AUC</div>
+                      <div className="text-lg font-semibold text-slate-900 mt-0.5">{datasetEvalResult.roc_auc}</div>
                     </div>
-                    <div className="p-3.5 bg-emerald-100 border-2 border-emerald-300 rounded-xl text-center shadow-sm">
-                      <div className="text-[10px] text-emerald-900 font-sans uppercase font-extrabold">F1-Score</div>
-                      <div className="text-lg font-black text-emerald-950 mt-1">{datasetEvalResult.f1_score}</div>
+                    <div className="p-3 bg-white border border-slate-200 rounded-md text-center">
+                      <div className="text-[10px] text-slate-500 font-sans uppercase font-medium">F1-Score</div>
+                      <div className="text-lg font-semibold text-slate-900 mt-0.5">{datasetEvalResult.f1_score}</div>
                     </div>
-                    <div className="p-3.5 bg-slate-100 border-2 border-slate-300 rounded-xl text-center shadow-sm">
-                      <div className="text-[10px] text-slate-700 font-sans uppercase font-extrabold">Precision</div>
-                      <div className="text-lg font-black text-[#0F172A] mt-1">{datasetEvalResult.precision}</div>
+                    <div className="p-3 bg-white border border-slate-200 rounded-md text-center">
+                      <div className="text-[10px] text-slate-500 font-sans uppercase font-medium">Precision</div>
+                      <div className="text-lg font-semibold text-slate-900 mt-0.5">{datasetEvalResult.precision}</div>
                     </div>
-                    <div className="p-3.5 bg-amber-100 border-2 border-amber-300 rounded-xl text-center shadow-sm">
-                      <div className="text-[10px] text-amber-900 font-sans uppercase font-extrabold">Recall</div>
-                      <div className="text-lg font-black text-amber-950 mt-1">{datasetEvalResult.recall}</div>
+                    <div className="p-3 bg-white border border-slate-200 rounded-md text-center">
+                      <div className="text-[10px] text-slate-500 font-sans uppercase font-medium">Recall</div>
+                      <div className="text-lg font-semibold text-slate-900 mt-0.5">{datasetEvalResult.recall}</div>
                     </div>
                   </div>
 
                   {datasetEvalResult.confusion_matrix && (
-                    <div className="text-xs text-slate-700 font-medium flex items-center justify-between pt-2 border-t border-slate-200">
-                      <span>Confusion Matrix: [TN: {datasetEvalResult.confusion_matrix[0][0]}, FP: {datasetEvalResult.confusion_matrix[0][1]}, FN: {datasetEvalResult.confusion_matrix[1][0]}, TP: {datasetEvalResult.confusion_matrix[1][1]}]</span>
-                      <span className="text-emerald-800 font-bold">Real Evaluation on Live Data</span>
+                    <div className="text-xs text-slate-500 font-mono flex items-center justify-between pt-2 border-t border-slate-200">
+                      <span>Confusion Matrix: TN={datasetEvalResult.confusion_matrix[0][0]}, FP={datasetEvalResult.confusion_matrix[0][1]}, FN={datasetEvalResult.confusion_matrix[1][0]}, TP={datasetEvalResult.confusion_matrix[1][1]}</span>
+                      <span className="text-emerald-700 font-sans font-medium">Live Model Evaluation</span>
                     </div>
                   )}
                 </div>
@@ -798,10 +814,11 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1 p-6 bg-gradient-to-br from-amber-100 via-white to-white border-2 border-amber-300 rounded-xl space-y-4 shadow-sm">
-                <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider flex items-center space-x-2">
-                  <Search className="h-4 w-4 text-amber-800" />
-                  <span>Test Single Transactions</span>
+              {/* Preset Sample Picker */}
+              <div className="lg:col-span-1 p-5 bg-white border border-slate-200 rounded-lg space-y-4 shadow-xs">
+                <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wider flex items-center space-x-2">
+                  <Search className="h-4 w-4 text-slate-600" />
+                  <span>Preset Test Transactions</span>
                 </h3>
 
                 <div className="space-y-2">
@@ -813,29 +830,29 @@ export default function App() {
                         setCustomFeatures([...s.features]);
                         setPredictionResult(null);
                       }}
-                      className={`w-full text-left p-3.5 rounded-xl border-2 text-xs transition shadow-sm ${
+                      className={`w-full text-left p-3 rounded-md border text-xs transition ${
                         selectedSample?.id === s.id
-                          ? "bg-amber-200 border-amber-600 text-amber-950 font-bold"
-                          : "bg-white border-slate-300 text-slate-700 hover:border-slate-400 font-medium"
+                          ? "bg-slate-100 border-slate-900 text-slate-900 font-medium"
+                          : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-extrabold text-amber-950">{s.bank}</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold shadow-sm ${
-                          s.ground_truth === "Fraud" ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"
+                        <span className="font-semibold text-slate-900">{s.bank}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                          s.ground_truth === "Fraud" ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                         }`}>
                           {s.ground_truth}
                         </span>
                       </div>
-                      <p className="text-slate-600 text-[11px] leading-tight font-medium">{s.description}</p>
+                      <p className="text-slate-500 text-[11px] leading-tight">{s.description}</p>
                     </button>
                   ))}
                 </div>
 
-                <div className="pt-3 border-t border-slate-300 text-xs">
-                  <div className="flex justify-between text-slate-800 font-bold mb-1">
+                <div className="pt-3 border-t border-slate-200 text-xs">
+                  <div className="flex justify-between text-slate-700 font-medium mb-1">
                     <span>Decision Threshold:</span>
-                    <span className="font-mono text-amber-900 font-extrabold">{threshold.toFixed(2)}</span>
+                    <span className="font-mono text-slate-900 font-semibold">{threshold.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
@@ -844,86 +861,83 @@ export default function App() {
                     step="0.05"
                     value={threshold}
                     onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                    className="w-full accent-amber-600 cursor-pointer"
+                    className="w-full accent-slate-900 cursor-pointer"
                   />
                 </div>
 
                 <button
                   onClick={handleScoreTransaction}
-                  className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-amber-500/20"
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-md transition"
                 >
-                  Score with Global MLP
+                  Score Selected Transaction
                 </button>
               </div>
 
-              <div className="lg:col-span-2 space-y-6">
+              {/* Simulator & Results */}
+              <div className="lg:col-span-2 space-y-4">
                 {predictionResult && (
-                  <div className={`p-6 border-2 rounded-xl flex items-center justify-between shadow-md ${
+                  <div className={`p-4 border rounded-lg flex items-center justify-between ${
                     predictionResult.is_fraud
-                      ? "bg-rose-100 border-rose-400 text-rose-950"
-                      : "bg-emerald-100 border-emerald-400 text-emerald-950"
+                      ? "bg-rose-50 border-rose-200 text-rose-900"
+                      : "bg-emerald-50 border-emerald-200 text-emerald-900"
                   }`}>
                     <div>
-                      <div className="flex items-center space-x-2.5">
+                      <div className="flex items-center space-x-2">
                         {predictionResult.is_fraud ? (
-                          <AlertTriangle className="h-6 w-6 text-rose-700" />
+                          <AlertTriangle className="h-5 w-5 text-rose-600" />
                         ) : (
-                          <CheckCircle2 className="h-6 w-6 text-emerald-700" />
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                         )}
-                        <span className="text-xl font-extrabold tracking-tight">
-                          {predictionResult.is_fraud ? "FRAUD DETECTED" : "TRANSACTION APPROVED"}
+                        <span className="text-base font-semibold">
+                          {predictionResult.is_fraud ? "Fraud Alert Triggered" : "Transaction Approved"}
                         </span>
-                        <span className={`px-2.5 py-1 text-xs font-black border rounded-full shadow-sm ${
-                          predictionResult.is_fraud ? "bg-rose-600 text-white border-rose-700" : "bg-emerald-600 text-white border-emerald-700"
+                        <span className={`px-2 py-0.5 text-xs font-medium border rounded ${
+                          predictionResult.is_fraud ? "bg-rose-100 text-rose-800 border-rose-300" : "bg-emerald-100 text-emerald-800 border-emerald-300"
                         }`}>
-                          {predictionResult.risk_tier} RISK
+                          {predictionResult.risk_tier} Risk
                         </span>
                       </div>
-                      <p className="text-xs text-slate-800 font-medium mt-1.5 max-w-lg">{predictionResult.explanation}</p>
+                      <p className="text-xs text-slate-600 mt-1 max-w-lg">{predictionResult.explanation}</p>
                     </div>
 
                     <div className="text-right">
-                      <div className="text-xs uppercase text-slate-700 font-bold">Fraud Probability</div>
-                      <div className="text-3xl font-black font-mono text-[#0F172A]">
+                      <div className="text-[11px] uppercase text-slate-500 font-medium">Fraud Probability</div>
+                      <div className="text-2xl font-bold font-mono text-slate-900">
                         {(predictionResult.fraud_probability * 100).toFixed(1)}%
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="p-6 bg-white border-2 border-slate-300 rounded-xl space-y-4 shadow-sm">
+                <div className="p-5 bg-white border border-slate-200 rounded-lg space-y-4 shadow-xs">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
                     <div>
-                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#0F172A]">
-                        Create Custom Transaction Simulator
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-900">
+                        Transaction Feature Simulator
                       </h4>
-                      <p className="text-[11px] text-slate-600 font-medium mt-0.5">
+                      <p className="text-[11px] text-slate-500 mt-0.5">
                         {inputMode === "wizard"
-                          ? "Answer simple everyday banking questions; the system converts them into normalized ML inputs."
-                          : "Directly edit all 16 normalized feature parameters (Advanced ML mode)."}
+                          ? "Answer banking questions; the system maps them into 16 normalized feature inputs."
+                          : "Directly adjust the 16 normalized feature values."}
                       </p>
                     </div>
 
-                    <div className="flex bg-slate-100 p-1 rounded-xl border-2 border-slate-200 text-xs shadow-inner">
+                    <div className="flex bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs">
                       <button
                         onClick={() => setInputMode("wizard")}
-                        className={`px-3.5 py-1.5 rounded-lg font-bold transition ${
-                          inputMode === "wizard"
-                            ? "bg-amber-600 text-white shadow"
-                            : "text-slate-700 hover:text-[#0F172A]"
+                        className={`px-3 py-1 rounded text-xs font-medium transition ${
+                          inputMode === "wizard" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        🧙 Simple Questions
+                        Guided Form
                       </button>
                       <button
                         onClick={() => setInputMode("advanced")}
-                        className={`px-3.5 py-1.5 rounded-lg font-bold transition ${
-                          inputMode === "advanced"
-                            ? "bg-amber-600 text-white shadow"
-                            : "text-slate-700 hover:text-[#0F172A]"
+                        className={`px-3 py-1 rounded text-xs font-medium transition ${
+                          inputMode === "advanced" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        ⚙️ Advanced 16-D
+                        Direct 16-D
                       </button>
                     </div>
                   </div>
@@ -931,149 +945,137 @@ export default function App() {
                   {inputMode === "wizard" && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl space-y-1.5 shadow-sm">
-                          <label className="block text-[#0F172A] font-bold">1. Transaction Amount ($ USD)</label>
+                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-md space-y-1.5">
+                          <label className="block text-slate-800 font-medium">1. Transaction Amount ($ USD)</label>
                           <input
                             type="number"
                             min="1"
                             value={wizardAmount}
                             onChange={(e) => setWizardAmount(Math.max(1, parseFloat(e.target.value) || 0))}
-                            className="w-full bg-white border-2 border-slate-300 rounded-lg px-3 py-2 text-[#0F172A] font-mono font-bold text-sm focus:outline-none focus:border-amber-600 shadow-sm"
+                            className="w-full bg-white border border-slate-300 rounded px-3 py-1.5 text-slate-900 font-mono font-medium text-xs focus:outline-none focus:border-slate-900"
                           />
-                          <p className="text-[10px] text-slate-600 font-medium">e.g. $25 for coffee, $2,500 for wire transfer</p>
+                          <p className="text-[10px] text-slate-500">e.g. $25 for POS retail, $2,500 for wire transfer</p>
                         </div>
 
-                        <div className="p-4 bg-sky-50 border-2 border-sky-300 rounded-xl space-y-1.5 shadow-sm">
-                          <label className="block text-[#0F172A] font-bold">2. Transaction Type / Channel</label>
+                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-md space-y-1.5">
+                          <label className="block text-slate-800 font-medium">2. Transaction Type / Channel</label>
                           <select
                             value={wizardChannel}
                             onChange={(e) => setWizardChannel(e.target.value)}
-                            className="w-full bg-white border-2 border-slate-300 rounded-lg px-3 py-2 text-[#0F172A] font-bold text-xs focus:outline-none focus:border-sky-600 shadow-sm"
+                            className="w-full bg-white border border-slate-300 rounded px-3 py-1.5 text-slate-900 font-medium text-xs focus:outline-none focus:border-slate-900"
                           >
                             <option value="card_swipe">In-Store Card Swipe (Bank A)</option>
                             <option value="online_pay">Online Merchant Payment (Bank C)</option>
-                            <option value="transfer">Mobile Money Wire Transfer (Bank B - High Risk)</option>
-                            <option value="cashout">Instant Cash-Out / ATM (Bank B - High Risk)</option>
-                            <option value="crypto">Luxury Merchant / Jewelry (Bank C - High Risk)</option>
+                            <option value="transfer">Mobile Money Wire Transfer (Bank B)</option>
+                            <option value="cashout">Instant Cash-Out / ATM (Bank B)</option>
+                            <option value="crypto">Luxury Merchant / Jewelry (Bank C)</option>
                           </select>
-                          <p className="text-[10px] text-slate-600 font-medium">Wires & Cash-outs carry inherently higher fraud risk</p>
+                          <p className="text-[10px] text-slate-500">Instant wires and cash-outs carry higher structural risk</p>
                         </div>
 
-                        <div className="p-4 bg-purple-50 border-2 border-purple-300 rounded-xl space-y-1.5 shadow-sm">
-                          <label className="block text-[#0F172A] font-bold">3. Time of Transaction</label>
+                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-md space-y-1.5">
+                          <label className="block text-slate-800 font-medium">3. Time of Transaction</label>
                           <select
                             value={wizardTime}
                             onChange={(e) => setWizardTime(e.target.value)}
-                            className="w-full bg-white border-2 border-slate-300 rounded-lg px-3 py-2 text-[#0F172A] font-bold text-xs focus:outline-none focus:border-purple-600 shadow-sm"
+                            className="w-full bg-white border border-slate-300 rounded px-3 py-1.5 text-slate-900 font-medium text-xs focus:outline-none focus:border-slate-900"
                           >
                             <option value="morning">Morning (9:00 AM — Business Hours)</option>
-                            <option value="afternoon">Afternoon (2:00 PM — Normal Day)</option>
+                            <option value="afternoon">Afternoon (2:00 PM — Standard Day)</option>
                             <option value="evening">Late Evening (11:00 PM)</option>
-                            <option value="midnight">Dead of Night (3:00 AM — High Risk Spike)</option>
+                            <option value="midnight">Off-Hours (3:00 AM — Anomaly Window)</option>
                           </select>
-                          <p className="text-[10px] text-slate-600 font-medium">Midnight transactions trigger temporal anomaly signals</p>
+                          <p className="text-[10px] text-slate-500">Night transactions trigger temporal anomaly signals</p>
                         </div>
 
-                        <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-xl space-y-1.5 shadow-sm">
-                          <label className="block text-[#0F172A] font-bold">4. Customer Spending Behavior</label>
+                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-md space-y-1.5">
+                          <label className="block text-slate-800 font-medium">4. Spending Deviation</label>
                           <div className="flex gap-2 pt-1">
                             <button
                               type="button"
                               onClick={() => setWizardIsUnusualAmt(false)}
-                              className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition ${
-                                !wizardIsUnusualAmt
-                                  ? "bg-emerald-600 border-emerald-700 text-white shadow"
-                                  : "bg-white border-slate-300 text-slate-700"
+                              className={`flex-1 py-1.5 rounded text-xs font-medium border transition ${
+                                !wizardIsUnusualAmt ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300 text-slate-700"
                               }`}
                             >
-                              Normal for Customer
+                              Typical Volume
                             </button>
                             <button
                               type="button"
                               onClick={() => setWizardIsUnusualAmt(true)}
-                              className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition ${
-                                wizardIsUnusualAmt
-                                  ? "bg-rose-600 border-rose-700 text-white shadow"
-                                  : "bg-white border-slate-300 text-slate-700"
+                              className={`flex-1 py-1.5 rounded text-xs font-medium border transition ${
+                                wizardIsUnusualAmt ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300 text-slate-700"
                               }`}
                             >
-                              ⚠️ 10x Spike vs Usual
+                              Spike vs History
                             </button>
                           </div>
-                          <p className="text-[10px] text-slate-600 font-medium">Flags sudden deviations from historical account habits</p>
+                          <p className="text-[10px] text-slate-500">Flags deviations from historical account activity</p>
                         </div>
 
-                        <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-xl space-y-1.5 shadow-sm">
-                          <label className="block text-[#0F172A] font-bold">5. Account Balance After Transaction</label>
+                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-md space-y-1.5">
+                          <label className="block text-slate-800 font-medium">5. Balance State After Transfer</label>
                           <div className="flex gap-2 pt-1">
                             <button
                               type="button"
                               onClick={() => setWizardBalanceEmptied(false)}
-                              className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition ${
-                                !wizardBalanceEmptied
-                                  ? "bg-emerald-600 border-emerald-700 text-white shadow"
-                                  : "bg-white border-slate-300 text-slate-700"
+                              className={`flex-1 py-1.5 rounded text-xs font-medium border transition ${
+                                !wizardBalanceEmptied ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300 text-slate-700"
                               }`}
                             >
-                              Healthy Balance
+                              Balance Retained
                             </button>
                             <button
                               type="button"
                               onClick={() => setWizardBalanceEmptied(true)}
-                              className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition ${
-                                wizardBalanceEmptied
-                                  ? "bg-rose-600 border-rose-700 text-white shadow"
-                                  : "bg-white border-slate-300 text-slate-700"
+                              className={`flex-1 py-1.5 rounded text-xs font-medium border transition ${
+                                wizardBalanceEmptied ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300 text-slate-700"
                               }`}
                             >
-                              🚨 Emptied to $0.00
+                              Drained to Zero
                             </button>
                           </div>
-                          <p className="text-[10px] text-slate-600 font-medium">Account takeover fraudsters almost always empty accounts</p>
+                          <p className="text-[10px] text-slate-500">Account takeovers frequently drain balances completely</p>
                         </div>
 
-                        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl space-y-1.5 shadow-sm">
-                          <label className="block text-[#0F172A] font-bold">6. Device / Location Consistency</label>
+                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-md space-y-1.5">
+                          <label className="block text-slate-800 font-medium">6. Device & Location Consistency</label>
                           <div className="flex gap-2 pt-1">
                             <button
                               type="button"
                               onClick={() => setWizardLocationRisk(false)}
-                              className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition ${
-                                !wizardLocationRisk
-                                  ? "bg-emerald-600 border-emerald-700 text-white shadow"
-                                  : "bg-white border-slate-300 text-slate-700"
+                              className={`flex-1 py-1.5 rounded text-xs font-medium border transition ${
+                                !wizardLocationRisk ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300 text-slate-700"
                               }`}
                             >
-                              Home Device
+                              Recognized Device
                             </button>
                             <button
                               type="button"
                               onClick={() => setWizardLocationRisk(true)}
-                              className={`flex-1 py-2 rounded-lg text-xs font-bold border-2 transition ${
-                                wizardLocationRisk
-                                  ? "bg-rose-600 border-rose-700 text-white shadow"
-                                  : "bg-white border-slate-300 text-slate-700"
+                              className={`flex-1 py-1.5 rounded text-xs font-medium border transition ${
+                                wizardLocationRisk ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300 text-slate-700"
                               }`}
                             >
-                              ⚠️ Foreign IP / New
+                              Foreign / Unrecognized
                             </button>
                           </div>
-                          <p className="text-[10px] text-slate-600 font-medium">Maps to high PCA deviation and heuristic anomaly flags</p>
+                          <p className="text-[10px] text-slate-500">Increases heuristic risk and outlier deviation scores</p>
                         </div>
                       </div>
 
-                      <div className="p-4 bg-amber-100 border-2 border-amber-300 rounded-xl text-xs flex flex-wrap items-center justify-between gap-3 shadow-sm">
-                        <div className="text-slate-800 text-[11px] font-medium">
-                          Auto-mapped to 16 normalized features:
-                          <span className="font-mono text-amber-950 font-bold ml-1.5">
-                            Amount Norm: {customFeatures[0]}, Outflow: {customFeatures[9]}, High Risk Ch: {customFeatures[8]}, Anomaly: {customFeatures[12]}
+                      <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-md text-xs flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-slate-600 text-[11px]">
+                          Mapped to 16-D normalized vector:
+                          <span className="font-mono text-slate-900 font-medium ml-1.5">
+                            amt_norm={customFeatures[0]}, outflow={customFeatures[9]}, risk_ch={customFeatures[8]}, anomaly={customFeatures[12]}
                           </span>
                         </div>
                         <button
                           onClick={handleScoreTransaction}
-                          className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-amber-500/20"
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-md transition"
                         >
-                          Score This Transaction
+                          Score Transaction
                         </button>
                       </div>
                     </div>
@@ -1082,11 +1084,11 @@ export default function App() {
                   {inputMode === "advanced" && (
                     <div className="space-y-4">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-700 font-semibold">Directly modify any of the 16 normalized mathematical features:</span>
+                        <span className="text-slate-600">Directly modify any of the 16 normalized feature parameters:</span>
                         <div className="flex space-x-2">
                           <button
                             onClick={() => setCustomFeatures(new Array(16).fill(0))}
-                            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs rounded-lg transition font-bold shadow-sm"
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs rounded border border-slate-200 font-medium"
                           >
                             Reset to 0
                           </button>
@@ -1095,14 +1097,14 @@ export default function App() {
                               setCustomFeatures([3.5, 2.8, 1.0, -0.9, 0.1, 0.2, 0.9, 0.8, 1.0, 1.0, 0.95, 1.0, 0.9, 1.0, 0.8, 0.9]);
                               setPredictionResult(null);
                             }}
-                            className="px-3 py-1.5 bg-rose-200 hover:bg-rose-300 border border-rose-400 text-rose-900 text-xs rounded-lg transition font-bold shadow-sm"
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs rounded border border-rose-200 font-medium"
                           >
                             Fill High Risk
                           </button>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono text-xs">
                         {[
                           { name: "Amount (Norm)", hint: "Z-Score (-2 to +5)" },
                           { name: "Amount (Log)", hint: "Log-scale volume" },
@@ -1121,10 +1123,10 @@ export default function App() {
                           { name: "Inst. Scale", hint: "Bank volume weight" },
                           { name: "Deviation Norm", hint: "PCA outlier distance" }
                         ].map((item, i) => (
-                          <div key={i} className="p-3 bg-slate-50 border-2 border-slate-200 rounded-xl space-y-1.5 focus-within:border-amber-600 transition shadow-sm">
+                          <div key={i} className="p-2.5 bg-slate-50 border border-slate-200 rounded space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-[#0F172A] font-sans font-bold truncate">{item.name}</span>
-                              <span className="text-[9px] text-slate-500 font-sans">{item.hint}</span>
+                              <span className="text-[10px] text-slate-900 font-sans font-medium truncate">{item.name}</span>
+                              <span className="text-[9px] text-slate-400 font-sans">{item.hint}</span>
                             </div>
                             <input
                               type="number"
@@ -1136,7 +1138,7 @@ export default function App() {
                                 updated[i] = isNaN(val) ? 0 : val;
                                 setCustomFeatures(updated);
                               }}
-                              className="w-full bg-white border-2 border-slate-300 rounded-lg px-2.5 py-1.5 text-amber-950 font-black text-xs focus:outline-none focus:border-amber-600 shadow-inner"
+                              className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-slate-900 font-medium text-xs focus:outline-none focus:border-slate-900"
                             />
                           </div>
                         ))}
@@ -1145,9 +1147,9 @@ export default function App() {
                       <div className="pt-2 flex justify-end">
                         <button
                           onClick={handleScoreTransaction}
-                          className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-amber-500/20"
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-md transition"
                         >
-                          Score Custom Transaction
+                          Score Custom Feature Vector
                         </button>
                       </div>
                     </div>
@@ -1158,30 +1160,28 @@ export default function App() {
           </div>
         )}
 
-        {/* =========================================================================
-            PAGE 4 — TRUST & SECURITY (ATTACK LAB & DEFENSE)
-            ========================================================================= */}
+        {/* PAGE 4 — TRUST & SECURITY */}
         {activeTab === "security" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1 p-6 bg-gradient-to-br from-rose-100 via-rose-50 to-white border-2 border-rose-300 rounded-xl space-y-4 shadow-sm">
+              <div className="lg:col-span-1 p-5 bg-white border border-slate-200 rounded-lg space-y-4 shadow-xs">
                 <div>
-                  <h2 className="text-base font-extrabold text-rose-800 flex items-center space-x-2">
-                    <ShieldAlert className="h-5 w-5" />
-                    <span>Run Attack Simulation</span>
+                  <h2 className="text-sm font-semibold text-slate-900 flex items-center space-x-2">
+                    <ShieldAlert className="h-4 w-4 text-slate-700" />
+                    <span>Simulate Adversarial Attack</span>
                   </h2>
-                  <p className="text-xs text-slate-700 font-medium mt-1">
-                    Simulates a Byzantine adversarial bank poisoning model updates, comparing undefended FedAvg against coordinator defense filtering.
+                  <p className="text-xs text-slate-500 mt-1">
+                    Simulates a Byzantine client injecting poisoned model updates, comparing standard FedAvg against TrustFL coordinator defense filtering.
                   </p>
                 </div>
 
-                <div className="space-y-3.5 text-xs">
+                <div className="space-y-3 text-xs">
                   <div>
-                    <label className="block text-[#0F172A] font-bold mb-1">Compromised Node</label>
+                    <label className="block text-slate-700 font-medium mb-1">Compromised Client Node</label>
                     <select
                       value={attackAttacker}
                       onChange={(e) => setAttackAttacker(e.target.value)}
-                      className="w-full bg-white border-2 border-slate-300 rounded-lg px-3.5 py-2.5 text-[#0F172A] font-medium focus:outline-none focus:border-rose-600 shadow-sm"
+                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-slate-900 font-medium focus:outline-none focus:border-slate-900"
                     >
                       <option value="bank_c">Bank C (Retail Payments)</option>
                       <option value="bank_b">Bank B (Mobile Money)</option>
@@ -1190,11 +1190,11 @@ export default function App() {
                   </div>
 
                   <div>
-                    <label className="block text-[#0F172A] font-bold mb-1">Poisoning Attack Vector</label>
+                    <label className="block text-slate-700 font-medium mb-1">Poisoning Attack Vector</label>
                     <select
                       value={attackType}
                       onChange={(e) => setAttackType(e.target.value)}
-                      className="w-full bg-white border-2 border-slate-300 rounded-lg px-3.5 py-2.5 text-[#0F172A] font-medium focus:outline-none focus:border-rose-600 shadow-sm"
+                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-slate-900 font-medium focus:outline-none focus:border-slate-900"
                     >
                       <option value="scale_poison">100x Scale Weight Poisoning (Exploding Gradients)</option>
                       <option value="label_flip">Label Flipping Attack (Reverses Fraud Labels)</option>
@@ -1202,11 +1202,11 @@ export default function App() {
                   </div>
 
                   <div>
-                    <label className="block text-[#0F172A] font-bold mb-1">Defense Aggregation Algorithm</label>
+                    <label className="block text-slate-700 font-medium mb-1">Defense Aggregation Algorithm</label>
                     <select
                       value={attackDefense}
                       onChange={(e) => setAttackDefense(e.target.value)}
-                      className="w-full bg-white border-2 border-slate-300 rounded-lg px-3.5 py-2.5 text-[#0F172A] font-medium focus:outline-none focus:border-amber-600 shadow-sm"
+                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-slate-900 font-medium focus:outline-none focus:border-slate-900"
                     >
                       <option value="fedavg">Standard FedAvg + Multi-Layer Anomaly Gate</option>
                       <option value="coordinate_median">Coordinate-wise Median (Byzantine-Robust)</option>
@@ -1216,93 +1216,93 @@ export default function App() {
                   <button
                     onClick={handleSimulateAttack}
                     disabled={simulatingAttack}
-                    className="w-full py-3.5 bg-rose-700 hover:bg-rose-600 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-rose-600/30 flex items-center justify-center space-x-2"
+                    className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs rounded-md transition flex items-center justify-center space-x-1.5"
                   >
                     <ShieldAlert className="h-4 w-4" />
-                    <span>{simulatingAttack ? "Running Simulation..." : "Launch Controlled Attack"}</span>
+                    <span>{simulatingAttack ? "Running Simulation..." : "Simulate Attack"}</span>
                   </button>
                 </div>
               </div>
 
-              <div className="lg:col-span-2 p-6 bg-gradient-to-br from-emerald-100 via-white to-white border-2 border-emerald-300 rounded-xl space-y-4 shadow-sm">
-                <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+              <div className="lg:col-span-2 p-5 bg-white border border-slate-200 rounded-lg space-y-4 shadow-xs">
+                <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
                   Attack Impact & Defense Screening Result
                 </h3>
 
                 {attackResult ? (
                   <div className="space-y-4 text-xs">
-                    <div className="p-4 bg-white border-2 border-slate-300 rounded-xl space-y-2.5 shadow-sm">
-                      <div className="font-extrabold text-[#0F172A] uppercase">Coordinator Screening Verdicts:</div>
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                      <div className="font-semibold text-slate-900 text-xs">Coordinator Screening Verdicts:</div>
                       {attackResult.screening_results?.map((s: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-2 border-slate-200 shadow-sm">
-                          <span className="font-extrabold text-[#0F172A] uppercase">{s.bank_id}</span>
-                          <span className={`px-2.5 py-1 rounded-lg font-mono font-bold text-xs ${
-                            s.status === "ACCEPTED" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+                        <div key={idx} className="flex items-center justify-between p-2.5 bg-white rounded border border-slate-200">
+                          <span className="font-semibold text-slate-900 uppercase">{s.bank_id}</span>
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium ${
+                            s.status === "ACCEPTED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
                           }`}>
                             {s.status}
                           </span>
-                          <span className="text-slate-700 font-medium text-xs truncate max-w-sm">{s.reason}</span>
+                          <span className="text-slate-600 text-xs truncate max-w-sm">{s.reason}</span>
                         </div>
                       ))}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 font-mono">
-                      <div className="p-4 bg-rose-100 border-2 border-rose-300 rounded-xl shadow-sm">
-                        <div className="text-[11px] font-sans font-black text-rose-900 uppercase">Ordinary FedAvg (Undefended)</div>
-                        <div className="text-2xl font-black text-rose-950 mt-2">{attackResult.ordinary_fedavg_metrics.pr_auc}</div>
-                        <div className="text-[11px] text-slate-700 font-semibold mt-1">PR-AUC (Degraded by poisoning)</div>
+                      <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg">
+                        <div className="text-[11px] font-sans font-semibold text-rose-800">Undefended FedAvg</div>
+                        <div className="text-2xl font-bold text-rose-900 mt-1">{attackResult.ordinary_fedavg_metrics.pr_auc}</div>
+                        <div className="text-[11px] text-slate-500 font-sans mt-0.5">PR-AUC degraded by poisoning</div>
                       </div>
 
-                      <div className="p-4 bg-emerald-100 border-2 border-emerald-300 rounded-xl shadow-sm">
-                        <div className="text-[11px] font-sans font-black text-emerald-900 uppercase">Defended FedAvg (TrustFL)</div>
-                        <div className="text-2xl font-black text-emerald-950 mt-2">{attackResult.defended_fedavg_metrics.pr_auc}</div>
-                        <div className="text-[11px] text-slate-700 font-semibold mt-1">PR-AUC (Poisoning isolated)</div>
+                      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                        <div className="text-[11px] font-sans font-semibold text-emerald-800">Defended FedAvg (TrustFL)</div>
+                        <div className="text-2xl font-bold text-emerald-900 mt-1">{attackResult.defended_fedavg_metrics.pr_auc}</div>
+                        <div className="text-[11px] text-slate-500 font-sans mt-0.5">PR-AUC preserved via anomaly filtering</div>
                       </div>
                     </div>
 
-                    <p className="text-[#0F172A] bg-white p-4 rounded-xl border-2 border-slate-300 shadow-sm font-bold">
+                    <p className="text-slate-700 bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs font-medium">
                       {attackResult.defense_summary}
                     </p>
                   </div>
                 ) : (
-                  <div className="text-slate-500 font-medium italic p-8 text-center text-xs">
-                    Select an attack scenario on the left and click 'Launch Controlled Attack' to see the side-by-side defense verdict and PR-AUC preservation.
+                  <div className="text-slate-400 italic p-8 text-center text-xs">
+                    Select an attack scenario on the left and click 'Simulate Attack' to inspect defense screening and PR-AUC preservation.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="p-6 bg-white border-2 border-slate-300 rounded-xl space-y-4 shadow-sm">
-              <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
-                Compare Models: Standalone Baselines vs Ordinary FedAvg vs Defended FedAvg
+            <div className="p-5 bg-white border border-slate-200 rounded-lg space-y-3 shadow-xs">
+              <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                Model Comparison: Standalone Baselines vs Ordinary FedAvg vs Defended FedAvg
               </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse font-mono">
                   <thead>
-                    <tr className="border-b-2 border-slate-300 text-slate-700 font-sans font-extrabold uppercase">
-                      <th className="py-3 px-3">Paradigm</th>
-                      <th className="py-3 px-3">PR-AUC</th>
-                      <th className="py-3 px-3">ROC-AUC</th>
-                      <th className="py-3 px-3">F1-Score</th>
-                      <th className="py-3 px-3">Poisoning Defense</th>
-                      <th className="py-3 px-3">Data Privacy</th>
+                    <tr className="border-b border-slate-200 text-slate-500 font-sans font-medium uppercase text-[11px]">
+                      <th className="py-2.5 px-3">Paradigm</th>
+                      <th className="py-2.5 px-3">PR-AUC</th>
+                      <th className="py-2.5 px-3">ROC-AUC</th>
+                      <th className="py-2.5 px-3">F1-Score</th>
+                      <th className="py-2.5 px-3">Poisoning Defense</th>
+                      <th className="py-2.5 px-3">Data Privacy</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-100">
                     {comparison.map((c, i) => (
-                      <tr key={i} className="hover:bg-slate-50 font-medium">
-                        <td className="py-3.5 px-3 font-sans font-bold text-[#0F172A]">{c.paradigm}</td>
-                        <td className="py-3.5 px-3 text-amber-900 font-black">{c.pr_auc.toFixed(4)}</td>
-                        <td className="py-3.5 px-3 text-[#0F172A] font-bold">{c.roc_auc.toFixed(4)}</td>
-                        <td className="py-3.5 px-3 text-emerald-800 font-black">{c.f1_score.toFixed(4)}</td>
-                        <td className="py-3.5 px-3 font-sans">
-                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                            c.defense_capability.includes("100%") ? "bg-emerald-100 text-emerald-900 border border-emerald-300" : "bg-slate-100 text-slate-700"
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="py-2.5 px-3 font-sans font-medium text-slate-900">{c.paradigm}</td>
+                        <td className="py-2.5 px-3 text-slate-900 font-semibold">{c.pr_auc.toFixed(4)}</td>
+                        <td className="py-2.5 px-3 text-slate-700">{c.roc_auc.toFixed(4)}</td>
+                        <td className="py-2.5 px-3 text-slate-900 font-semibold">{c.f1_score.toFixed(4)}</td>
+                        <td className="py-2.5 px-3 font-sans">
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${
+                            c.defense_capability.includes("100%") ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-600"
                           }`}>
                             {c.defense_capability}
                           </span>
                         </td>
-                        <td className="py-3.5 px-3 font-sans text-slate-700 font-bold">{c.data_privacy}</td>
+                        <td className="py-2.5 px-3 font-sans text-slate-600">{c.data_privacy}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1312,47 +1312,45 @@ export default function App() {
           </div>
         )}
 
-        {/* =========================================================================
-            PAGE 5 — BLOCKCHAIN AUDIT EXPLORER
-            ========================================================================= */}
+        {/* PAGE 5 — BLOCKCHAIN AUDIT */}
         {activeTab === "audit" && (
           <div className="space-y-6">
-            <div className="p-6 bg-gradient-to-br from-amber-100 via-yellow-100 to-white border-2 border-amber-300 rounded-xl grid grid-cols-1 md:grid-cols-3 gap-5 shadow-sm">
+            <div className="p-5 bg-white border border-slate-200 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4 shadow-xs">
               <div>
-                <span className="text-xs uppercase tracking-wider text-slate-700 font-bold">Contract Address</span>
-                <div className="text-sm font-mono text-amber-950 font-extrabold mt-1 break-all select-all">
+                <span className="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Smart Contract</span>
+                <div className="text-xs font-mono text-slate-900 font-semibold mt-1 break-all select-all">
                   0xF2E246BB76DF876Cef8b38ae84130F4F55De395b
                 </div>
-                <div className="text-slate-600 font-semibold text-[11px] mt-0.5">Solidity ^0.8.20 (FraudAudit.sol)</div>
+                <div className="text-slate-500 text-[11px] mt-0.5">Solidity ^0.8.20 (FraudAudit.sol)</div>
               </div>
 
               <div>
-                <span className="text-xs uppercase tracking-wider text-slate-700 font-bold">Coordinator Signer</span>
-                <div className="text-sm font-mono text-[#0F172A] font-extrabold mt-1 break-all select-all">
+                <span className="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Coordinator Signer</span>
+                <div className="text-xs font-mono text-slate-900 font-semibold mt-1 break-all select-all">
                   0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf
                 </div>
-                <div className="text-slate-600 font-semibold text-[11px] mt-0.5">Authorized Round Notary</div>
+                <div className="text-slate-500 text-[11px] mt-0.5">Authorized Round Notary</div>
               </div>
 
               <div>
-                <span className="text-xs uppercase tracking-wider text-slate-700 font-bold">Consensus Network</span>
-                <div className="text-sm font-extrabold text-emerald-800 mt-1">EVM Local Blockchain</div>
-                <div className="text-slate-600 font-semibold text-[11px] mt-0.5">py-evm / Web3.py Integration</div>
+                <span className="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Consensus Layer</span>
+                <div className="text-xs font-semibold text-slate-900 mt-1">EVM Local Blockchain</div>
+                <div className="text-slate-500 text-[11px] mt-0.5">Web3.py / py-evm Integration</div>
               </div>
             </div>
 
-            <div className="p-6 bg-white border-2 border-slate-300 rounded-xl space-y-4 shadow-sm">
+            <div className="p-5 bg-white border border-slate-200 rounded-lg space-y-3 shadow-xs">
               <div>
-                <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider flex items-center space-x-2">
-                  <FileCheck className="h-4 w-4 text-amber-800" />
+                <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wider flex items-center space-x-2">
+                  <FileCheck className="h-4 w-4 text-slate-700" />
                   <span>Verify Model Hash Against Smart Contract Commitment</span>
                 </h3>
-                <p className="text-xs text-slate-700 font-medium mt-0.5">
-                  Calls the on-chain function <code className="text-amber-900 font-mono font-bold">verifyGlobalModel(roundId, modelHash)</code> to cryptographically check if candidate weights are authentic.
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Calls the on-chain function <code className="text-slate-800 font-mono">verifyGlobalModel(roundId, modelHash)</code> to cryptographically check if candidate weights are authentic.
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-2.5">
                 <input
                   type="number"
                   value={isNaN(verifyRoundId) ? "" : verifyRoundId}
@@ -1361,118 +1359,114 @@ export default function App() {
                     setVerifyRoundId(isNaN(v) ? 0 : v);
                   }}
                   placeholder="Round"
-                  className="w-28 bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-[#0F172A] font-mono font-bold focus:outline-none focus:border-amber-600 shadow-sm"
+                  className="w-24 bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono font-medium focus:outline-none focus:border-slate-900"
                 />
                 <input
                   type="text"
                   value={verifyHashInput}
                   onChange={(e) => setVerifyHashInput(e.target.value)}
                   placeholder="Paste 64-character SHA-256 model hash..."
-                  className="flex-1 bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-[#0F172A] font-mono font-bold focus:outline-none focus:border-amber-600 shadow-sm"
+                  className="flex-1 bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono font-medium focus:outline-none focus:border-slate-900"
                 />
                 <button
                   onClick={handleVerifyHash}
                   disabled={verifyingHash}
-                  className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-amber-500/20"
+                  className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-md transition"
                 >
                   {verifyingHash ? "Querying EVM..." : "Verify On-Chain"}
                 </button>
               </div>
 
               {verifyResult && (
-                <div className={`p-4 rounded-xl border-2 text-xs flex items-center justify-between shadow-sm ${
+                <div className={`p-3 rounded-md border text-xs flex items-center justify-between ${
                   verifyResult.is_valid_on_chain
-                    ? "bg-emerald-100 border-emerald-400 text-emerald-950"
-                    : "bg-rose-100 border-rose-400 text-rose-950"
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                    : "bg-rose-50 border-rose-200 text-rose-900"
                 }`}>
-                  <div className="flex items-center space-x-2.5">
+                  <div className="flex items-center space-x-2">
                     {verifyResult.is_valid_on_chain ? (
-                      <ShieldCheck className="h-5 w-5 text-emerald-700" />
+                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
                     ) : (
-                      <XCircle className="h-5 w-5 text-rose-700" />
+                      <XCircle className="h-4 w-4 text-rose-600" />
                     )}
-                    <span className="font-extrabold text-sm">
+                    <span className="font-medium">
                       {verifyResult.is_valid_on_chain
-                        ? "AUTHENTIC: Model weights match the cryptographic commitment stored in the smart contract!"
-                        : "TAMPER DETECTED: Hash does NOT match the immutable on-chain record for this round!"}
+                        ? "Authentic: Model weights match the cryptographic commitment on FraudAudit.sol"
+                        : "Tamper Detected: Hash does NOT match the immutable on-chain record"}
                     </span>
                   </div>
-                  <span className="font-mono font-bold text-xs">Round #{verifyResult.round_id}</span>
+                  <span className="font-mono text-xs">Round #{verifyResult.round_id}</span>
                 </div>
               )}
             </div>
 
-            <div className="p-6 bg-white border-2 border-slate-300 rounded-xl space-y-5 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b-2 border-slate-200 pb-3">
+            <div className="p-5 bg-white border border-slate-200 rounded-lg space-y-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider flex items-center space-x-2">
-                    <Layers className="h-4 w-4 text-amber-800" />
+                  <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wider flex items-center space-x-2">
+                    <Layers className="h-4 w-4 text-slate-700" />
                     <span>On-Chain Cryptographic Blockchain Ledger</span>
                   </h3>
-                  <p className="text-xs text-slate-700 font-medium mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     {chainViewMode === "visual"
-                      ? "Graphical node diagram showing blocks chained together by cryptographic hashes on FraudAudit.sol."
-                      : "Detailed tabular ledger of all on-chain training rounds and transaction receipts."}
+                      ? "Graphical block sequence linked by cryptographic hashes on FraudAudit.sol."
+                      : "Detailed tabular ledger of on-chain training rounds and transaction receipts."}
                   </p>
                 </div>
 
-                <div className="flex bg-slate-100 p-1 rounded-xl border-2 border-slate-200 text-xs shadow-inner">
+                <div className="flex bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs">
                   <button
                     onClick={() => setChainViewMode("visual")}
-                    className={`px-3.5 py-1.5 rounded-lg font-bold transition ${
-                      chainViewMode === "visual"
-                        ? "bg-amber-600 text-white shadow"
-                        : "text-slate-700 hover:text-[#0F172A]"
+                    className={`px-3 py-1 rounded text-xs font-medium transition ${
+                      chainViewMode === "visual" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    🔗 Graphical Chain
+                    Chain Diagram
                   </button>
                   <button
                     onClick={() => setChainViewMode("table")}
-                    className={`px-3.5 py-1.5 rounded-lg font-bold transition ${
-                      chainViewMode === "table"
-                        ? "bg-amber-600 text-white shadow"
-                        : "text-slate-700 hover:text-[#0F172A]"
+                    className={`px-3 py-1 rounded text-xs font-medium transition ${
+                      chainViewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    📋 Table View
+                    Ledger Table
                   </button>
                 </div>
               </div>
 
               {chainViewMode === "visual" && (
-                <div className="space-y-6">
-                  <div className="p-3.5 bg-emerald-100 border-2 border-emerald-300 rounded-xl flex items-center justify-between text-xs shadow-sm">
+                <div className="space-y-4">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between text-xs text-slate-600">
                     <div className="flex items-center space-x-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                      <span className="font-extrabold text-emerald-900">Chain State: Cryptographically Linked & Immutable</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                      <span className="font-medium text-slate-800">Chain State: Cryptographically Linked & Immutable</span>
                     </div>
-                    <span className="text-slate-700 font-bold text-[11px]">Click any block below to inspect its on-chain forensics</span>
+                    <span className="text-[11px] text-slate-500">Click any block to inspect its forensic record</span>
                   </div>
 
-                  <div className="overflow-x-auto pb-4">
-                    <div className="flex items-center space-x-4 min-w-max p-2">
+                  <div className="overflow-x-auto pb-2">
+                    <div className="flex items-center space-x-3 min-w-max p-1">
                       <div
                         onClick={() => setSelectedBlockId(0)}
-                        className={`w-64 p-5 rounded-xl border-2 transition cursor-pointer select-none shadow-md ${
+                        className={`w-60 p-4 rounded-lg border transition cursor-pointer select-none ${
                           selectedBlockId === 0
-                            ? "bg-amber-200 border-amber-600 ring-2 ring-amber-500"
-                            : "bg-gradient-to-br from-amber-100 to-white border-amber-300 hover:border-amber-400"
+                            ? "bg-slate-100 border-slate-900 ring-1 ring-slate-900"
+                            : "bg-white border-slate-200 hover:border-slate-300"
                         }`}
                       >
-                        <div className="flex items-center justify-between text-xs mb-2">
-                          <span className="px-2.5 py-1 bg-amber-600 text-white rounded-lg font-black font-mono shadow-sm">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-800 rounded font-mono text-[10px] font-medium">
                             BLOCK #0
                           </span>
-                          <span className="text-slate-700 font-mono font-bold">GENESIS</span>
+                          <span className="text-slate-500 font-mono text-[10px]">GENESIS</span>
                         </div>
-                        <div className="text-xs font-black text-[#0F172A] mb-1">Architecture Initialization</div>
-                        <div className="text-[10px] text-slate-600 font-mono font-semibold break-all truncate">
-                          Prev Hash: 0x0000000000000000...
+                        <div className="text-xs font-semibold text-slate-900 mb-1">Architecture Initialization</div>
+                        <div className="text-[10px] text-slate-500 font-mono truncate">
+                          Prev Hash: 0x0000000000...
                         </div>
-                        <div className="mt-3 pt-2.5 border-t border-amber-200 text-xs text-slate-700 font-semibold flex justify-between">
-                          <span>EVM Network Launch</span>
-                          <span className="text-emerald-800 font-black">Verified</span>
+                        <div className="mt-2.5 pt-2 border-t border-slate-100 text-xs text-slate-500 flex justify-between">
+                          <span>EVM Launch</span>
+                          <span className="text-emerald-700 font-medium">Verified</span>
                         </div>
                       </div>
 
@@ -1483,66 +1477,44 @@ export default function App() {
 
                         return (
                           <React.Fragment key={`block-node-${r.round_id}-${idx}`}>
-                            <div className="flex flex-col items-center text-slate-400 px-1.5">
-                              <span className="text-[10px] font-mono text-amber-800 mb-1 font-bold">SHA-256</span>
+                            <div className="flex flex-col items-center text-slate-400 px-1">
+                              <span className="text-[10px] font-mono text-slate-500 mb-0.5">SHA-256</span>
                               <div className="flex items-center space-x-1">
-                                <div className="w-8 h-1 bg-gradient-to-r from-amber-300 to-amber-600 rounded"></div>
-                                <ArrowRight className="h-4 w-4 text-amber-700 animate-pulse font-bold" />
+                                <div className="w-4 h-px bg-slate-300"></div>
+                                <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
                               </div>
                             </div>
 
                             <div
                               onClick={() => setSelectedBlockId(blockIndex)}
-                              className={`w-72 p-5 rounded-xl border-2 transition cursor-pointer select-none shadow-md ${
+                              className={`w-64 p-4 rounded-lg border transition cursor-pointer select-none ${
                                 isSelected
-                                  ? "bg-amber-200 border-amber-600 ring-2 ring-amber-500"
-                                  : hasRejected
-                                  ? "bg-amber-100 border-amber-400 hover:border-amber-500"
-                                  : "bg-gradient-to-br from-yellow-100 via-white to-white border-amber-300 hover:border-amber-400"
+                                  ? "bg-slate-100 border-slate-900 ring-1 ring-slate-900"
+                                  : "bg-white border-slate-200 hover:border-slate-300"
                               }`}
                             >
-                              <div className="flex items-center justify-between text-xs mb-2">
-                                <span className={`px-2.5 py-1 rounded-lg font-black font-mono shadow-sm ${
-                                  hasRejected
-                                    ? "bg-amber-600 text-white"
-                                    : "bg-amber-600 text-white"
+                              <div className="flex items-center justify-between text-xs mb-1.5">
+                                <span className="px-2 py-0.5 bg-slate-900 text-white rounded font-mono text-[10px] font-medium">
+                                  ROUND #{r.round_id}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                                  hasRejected ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                 }`}>
-                                  BLOCK #{r.round_id}
-                                </span>
-                                <span className="text-slate-800 font-mono text-xs font-extrabold">
-                                  {r.defense_strategy?.toUpperCase()}
+                                  {hasRejected ? "POISON DEFENDED" : "ALL ACCEPTED"}
                                 </span>
                               </div>
 
-                              <div className="text-xs font-bold text-[#0F172A] mb-1">
-                                Consensus Global Model
-                              </div>
-                              <div className="p-2 bg-white rounded-lg border-2 border-slate-200 font-mono text-[11px] text-amber-900 font-bold truncate shadow-inner" title={r.resulting_global_model_hash}>
-                                {r.resulting_global_model_hash?.slice(0, 20)}...
+                              <div className="text-xs font-semibold text-slate-900 mb-1">
+                                Defense: {r.defense_strategy?.toUpperCase()}
                               </div>
 
-                              <div className="mt-3 pt-2.5 border-t border-slate-300 space-y-1.5">
-                                <span className="text-[11px] text-slate-700 uppercase font-black block">Participants Audited:</span>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {r.client_submissions?.map((s: any, sIdx: number) => (
-                                    <span
-                                      key={`sub-${idx}-${sIdx}`}
-                                      className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-extrabold flex items-center space-x-1 shadow-sm ${
-                                        s.decision === "ACCEPTED"
-                                          ? "bg-emerald-600 text-white"
-                                          : "bg-rose-600 text-white"
-                                      }`}
-                                    >
-                                      <span>{s.bank_id.toUpperCase()}</span>
-                                      <span>{s.decision === "ACCEPTED" ? "✓" : "✗"}</span>
-                                    </span>
-                                  ))}
-                                </div>
+                              <div className="text-[10px] text-slate-500 font-mono truncate" title={r.resulting_global_model_hash}>
+                                Hash: {r.resulting_global_model_hash?.slice(0, 16)}...
                               </div>
 
-                              <div className="mt-3 pt-2.5 border-t border-slate-300 text-xs flex items-center justify-between text-slate-700 font-mono font-bold">
-                                <span>{r.blockchain_receipt?.block_number ? `EVM #${r.blockchain_receipt.block_number}` : "Off-Chain"}</span>
-                                <span className="text-amber-900 font-black hover:underline">Inspect Details →</span>
+                              <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 flex justify-between items-center">
+                                <span className="font-mono">{r.client_submissions?.length ?? 3} Clients</span>
+                                <span className="text-slate-500">Block #{r.blockchain_receipt?.block_number ?? 1}</span>
                               </div>
                             </div>
                           </React.Fragment>
@@ -1551,74 +1523,75 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Forensic Block Inspector */}
                   {selectedBlockId !== null && (
-                    <div className="p-6 bg-gradient-to-br from-amber-100 via-white to-white border-2 border-amber-400 rounded-xl space-y-4 shadow-md animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between border-b-2 border-slate-200 pb-3">
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                         <div className="flex items-center space-x-2">
-                          <Lock className="h-5 w-5 text-amber-800" />
-                          <h4 className="text-sm font-black text-[#0F172A] uppercase tracking-wider">
-                            {selectedBlockId === 0 ? "Genesis Block #0" : `Block #${auditRounds[selectedBlockId - 1]?.round_id ?? selectedBlockId}`} On-Chain Forensic Inspection
-                          </h4>
+                          <span className="font-semibold text-slate-900 text-xs">
+                            {selectedBlockId === 0 ? "Genesis Block #0" : `On-Chain Round #${auditRounds[selectedBlockId - 1]?.round_id} Forensics`}
+                          </span>
                         </div>
                         <button
                           onClick={() => setSelectedBlockId(null)}
-                          className="text-xs font-bold text-slate-700 hover:text-[#0F172A]"
+                          className="text-slate-400 hover:text-slate-700 text-xs font-medium"
                         >
-                          ✕ Close Inspector
+                          Close Details
                         </button>
                       </div>
 
                       {selectedBlockId === 0 ? (
-                        <div className="text-xs text-slate-800 space-y-2 font-medium">
-                          <p><strong>Genesis Block #0:</strong> Deployed <code>FraudAudit.sol</code> contract and established initial random architecture consensus.</p>
-                          <div className="font-mono text-xs text-amber-950 font-black">Contract: 0xF2E246BB76DF876Cef8b38ae84130F4F55De395b</div>
+                        <div className="space-y-1 text-slate-600 font-mono">
+                          <div>Smart Contract: FraudAudit.sol</div>
+                          <div>Genesis State: Clean State Initialized</div>
                         </div>
                       ) : (
-                        (() => {
-                          const activeBlock = auditRounds[selectedBlockId - 1];
-                          if (!activeBlock) return <div className="text-xs text-slate-600">Block details not found.</div>;
-
-                          return (
-                            <div className="space-y-4 text-xs">
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono">
-                                <div className="p-4 bg-white rounded-xl border-2 border-slate-300 shadow-sm">
-                                  <div className="text-[10px] text-slate-600 font-sans font-bold uppercase">Full Global Model Hash:</div>
-                                  <div className="text-amber-950 font-black break-all mt-1">{activeBlock.resulting_global_model_hash}</div>
-                                </div>
-                                <div className="p-4 bg-white rounded-xl border-2 border-slate-300 shadow-sm">
-                                  <div className="text-[10px] text-slate-600 font-sans font-bold uppercase">Blockchain TxHash:</div>
-                                  <div className="text-[#0F172A] font-bold break-all mt-1">{activeBlock.blockchain_receipt?.transaction_hash || "Simulated Ledger"}</div>
-                                </div>
-                                <div className="p-4 bg-white rounded-xl border-2 border-slate-300 shadow-sm">
-                                  <div className="text-[10px] text-slate-600 font-sans font-bold uppercase">EVM Block & Gas Used:</div>
-                                  <div className="text-emerald-800 font-black mt-1">
-                                    Block #{activeBlock.blockchain_receipt?.block_number || "Local"} | Gas: {activeBlock.blockchain_receipt?.gas_used?.toLocaleString() || "N/A"}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2 pt-2">
-                                <span className="font-black text-[#0F172A] uppercase block text-xs">Bank Update Artifact Submissions:</span>
-                                {activeBlock.client_submissions?.map((sub: any, sIdx: number) => (
-                                  <div key={`forensic-sub-${sIdx}`} className="p-3 bg-white rounded-xl border-2 border-slate-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs shadow-sm">
-                                    <div className="flex items-center space-x-2.5">
-                                      <span className="font-black text-[#0F172A] uppercase">{sub.bank_id}:</span>
-                                      <span className="font-mono text-amber-950 font-bold truncate max-w-xs">{sub.weights_hash}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <span className={`px-2.5 py-1 rounded-lg font-black font-mono text-[11px] shadow-sm ${
-                                        sub.decision === "ACCEPTED" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
-                                      }`}>
-                                        {sub.decision}
-                                      </span>
-                                      {sub.reason && <span className="text-slate-700 font-semibold text-xs">({sub.reason})</span>}
+                        <div className="space-y-2.5">
+                          {(() => {
+                            const currentRoundData = auditRounds[selectedBlockId - 1];
+                            if (!currentRoundData) return null;
+                            return (
+                              <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono">
+                                  <div className="p-2.5 bg-white border border-slate-200 rounded">
+                                    <div className="text-[10px] text-slate-500 font-sans">Global Model State Hash:</div>
+                                    <div className="text-xs text-slate-900 break-all select-all font-semibold mt-0.5">
+                                      {currentRoundData.resulting_global_model_hash}
                                     </div>
                                   </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })()
+                                  <div className="p-2.5 bg-white border border-slate-200 rounded">
+                                    <div className="text-[10px] text-slate-500 font-sans">On-Chain Transaction Hash:</div>
+                                    <div className="text-xs text-slate-900 break-all select-all font-semibold mt-0.5">
+                                      {currentRoundData.blockchain_receipt?.transaction_hash ?? "Local EVM Ledger Commitment"}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1.5 pt-1">
+                                  <div className="font-semibold text-slate-800 text-[11px]">Client Update Proofs & Screening Verdicts:</div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    {currentRoundData.client_submissions?.map((sub: any, sIdx: number) => (
+                                      <div key={sIdx} className="p-2.5 bg-white border border-slate-200 rounded space-y-1">
+                                        <div className="flex justify-between items-center">
+                                          <span className="font-semibold text-slate-900 uppercase">{sub.bank_id}</span>
+                                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${
+                                            sub.decision === "ACCEPTED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
+                                          }`}>
+                                            {sub.decision}
+                                          </span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 font-mono truncate" title={sub.update_hash}>
+                                          {sub.update_hash?.slice(0, 14)}...
+                                        </div>
+                                        {sub.reason && <div className="text-[10px] text-slate-500">{sub.reason}</div>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
                       )}
                     </div>
                   )}
@@ -1629,43 +1602,42 @@ export default function App() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse font-mono">
                     <thead>
-                      <tr className="border-b-2 border-slate-300 text-slate-700 font-sans font-extrabold uppercase">
-                        <th className="py-3 px-3">Round ID</th>
-                        <th className="py-3 px-3">Defense</th>
-                        <th className="py-3 px-3">Global Model Hash</th>
-                        <th className="py-3 px-3">Bank Submissions & Verdicts</th>
-                        <th className="py-3 px-3">On-Chain Transaction Link</th>
+                      <tr className="border-b border-slate-200 text-slate-500 font-sans font-medium uppercase text-[11px]">
+                        <th className="py-2.5 px-3">Round ID</th>
+                        <th className="py-2.5 px-3">Defense</th>
+                        <th className="py-2.5 px-3">Global Model Hash</th>
+                        <th className="py-2.5 px-3">Bank Submissions & Verdicts</th>
+                        <th className="py-2.5 px-3">On-Chain Transaction</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody className="divide-y divide-slate-100">
                       {auditRounds.map((r, i) => (
-                        <tr key={`table-round-${r.round_id}-${i}`} className="hover:bg-slate-50 font-medium">
-                          <td className="py-3.5 px-3 font-extrabold text-[#0F172A]">#{r.round_id}</td>
-                          <td className="py-3.5 px-3 text-amber-950 font-black">{r.defense_strategy?.toUpperCase()}</td>
-                          <td className="py-3.5 px-3 text-slate-700 font-bold truncate max-w-xs" title={r.resulting_global_model_hash}>
+                        <tr key={`table-round-${r.round_id}-${i}`} className="hover:bg-slate-50">
+                          <td className="py-2.5 px-3 font-semibold text-slate-900">#{r.round_id}</td>
+                          <td className="py-2.5 px-3 text-slate-700 font-semibold">{r.defense_strategy?.toUpperCase()}</td>
+                          <td className="py-2.5 px-3 text-slate-700 truncate max-w-xs" title={r.resulting_global_model_hash}>
                             {r.resulting_global_model_hash?.slice(0, 16)}...
                           </td>
-                          <td className="py-3.5 px-3 font-sans space-y-1.5">
+                          <td className="py-2.5 px-3 font-sans space-y-1">
                             {r.client_submissions?.map((sub: any, sIdx: number) => (
-                              <div key={`table-sub-${r.round_id}-${i}-${sIdx}`} className="flex items-center space-x-2 text-xs">
-                                <span className="font-extrabold text-[#0F172A]">{sub.bank_id.toUpperCase()}:</span>
-                                <span className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] shadow-sm ${
-                                  sub.decision === "ACCEPTED" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+                              <div key={sIdx} className="flex items-center space-x-1.5 text-xs">
+                                <span className="font-semibold text-slate-900">{sub.bank_id.toUpperCase()}:</span>
+                                <span className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-medium ${
+                                  sub.decision === "ACCEPTED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
                                 }`}>
                                   {sub.decision}
                                 </span>
-                                {sub.reason && <span className="text-slate-600 font-medium truncate max-w-xs">({sub.reason})</span>}
                               </div>
                             ))}
                           </td>
-                          <td className="py-3.5 px-3 font-sans text-slate-700 font-bold text-xs">
+                          <td className="py-2.5 px-3 font-sans text-slate-600 text-xs">
                             {r.blockchain_receipt?.transaction_hash ? (
                               <div>
-                                <div className="text-amber-900 font-mono font-black">Tx: {r.blockchain_receipt.transaction_hash.slice(0, 14)}...</div>
-                                <div>Block #{r.blockchain_receipt.block_number} | Gas: {r.blockchain_receipt.gas_used?.toLocaleString()}</div>
+                                <div className="text-slate-900 font-mono font-medium">Tx: {r.blockchain_receipt.transaction_hash.slice(0, 14)}...</div>
+                                <div className="text-slate-500 text-[11px]">Block #{r.blockchain_receipt.block_number}</div>
                               </div>
                             ) : (
-                              <span className="text-slate-400 italic">Off-Chain Ledger Backup</span>
+                              <span className="text-slate-400 italic">Off-Chain Backup</span>
                             )}
                           </td>
                         </tr>
@@ -1678,50 +1650,59 @@ export default function App() {
           </div>
         )}
 
-        {/* =========================================================================
-            PAGE 6 — AI & HEURISTIC ALGORITHMS LAB
-            ========================================================================= */}
+        {/* PAGE 6 — AI & HEURISTIC ALGORITHMS LAB */}
         {activeTab === "algorithms" && (
           <div className="space-y-6">
-            {/* Header Explainer Banner */}
-            <div className="p-5 bg-gradient-to-r from-indigo-100 via-sky-100 to-amber-100 border-2 border-indigo-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 text-[#0F172A] shadow-sm">
+            {/* Header Explainer Card */}
+            <div className="p-5 bg-white border border-slate-200 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-4 text-slate-900 shadow-xs">
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
-                  <Network className="h-6 w-6 text-indigo-700" />
-                  <h3 className="text-base font-black">Algorithmic & Heuristic Intelligence Suite</h3>
-                  <span className="px-2.5 py-0.5 text-[10px] bg-indigo-700 text-white rounded font-bold uppercase tracking-wider">
+                  <Network className="h-5 w-5 text-slate-700" />
+                  <h3 className="text-sm font-semibold">Algorithmic & Heuristic Intelligence Suite</h3>
+                  <span className="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-700 border border-slate-200 rounded font-medium">
                     Graph Search & Meta-Heuristics
                   </span>
                 </div>
-                <p className="text-xs text-slate-700 font-medium max-w-3xl">
-                  While neural networks (MLPs) detect isolated single-transaction anomalies, real-world financial fraud rings require <strong>Graph Search Algorithms</strong> (BFS, DFS, Dijkstra, A*) to detect multi-hop money muling & wash cycles, plus <strong>Forensic Heuristics</strong> (Benford's Law, Smurfing, Simulated Annealing) to uncover scripted fraud amounts and optimize federated weighting.
+                <p className="text-xs text-slate-500 max-w-3xl">
+                  While neural networks (MLPs) detect single-transaction anomalies, <strong>Graph Search</strong> (BFS, DFS, Dijkstra, A*) uncovers multi-hop mule layering & wash cycles, and <strong>Forensic Heuristics</strong> (Benford's Law, Smurfing, Simulated Annealing, Bayesian Networks) provide causal reasoning and client optimization.
                 </p>
               </div>
 
-              <div className="flex items-center space-x-2 shrink-0">
+              <div className="flex items-center space-x-1.5 shrink-0 bg-slate-100 p-0.5 rounded-md border border-slate-200">
                 <button
                   onClick={() => setAlgoTab("graph")}
-                  className={`px-3.5 py-2 text-xs font-bold rounded-lg transition ${
-                    algoTab === "graph" ? "bg-indigo-700 text-white shadow-sm" : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+                  className={`px-3 py-1.5 text-xs font-medium rounded transition ${
+                    algoTab === "graph" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  🕸️ Graph Search (BFS/DFS/A*)
+                  Graph Traversal
                 </button>
                 <button
                   onClick={() => setAlgoTab("heuristics")}
-                  className={`px-3.5 py-2 text-xs font-bold rounded-lg transition ${
-                    algoTab === "heuristics" ? "bg-indigo-700 text-white shadow-sm" : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+                  className={`px-3 py-1.5 text-xs font-medium rounded transition ${
+                    algoTab === "heuristics" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  📊 Forensic Heuristics (Benford)
+                  Forensic Heuristics
                 </button>
                 <button
                   onClick={() => setAlgoTab("annealing")}
-                  className={`px-3.5 py-2 text-xs font-bold rounded-lg transition ${
-                    algoTab === "annealing" ? "bg-indigo-700 text-white shadow-sm" : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+                  className={`px-3 py-1.5 text-xs font-medium rounded transition ${
+                    algoTab === "annealing" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  🧬 Simulated Annealing
+                  Simulated Annealing
+                </button>
+                <button
+                  onClick={() => {
+                    setAlgoTab("bayesian");
+                    if (!bayesianResult) handleRunBayesianQuery();
+                  }}
+                  className={`px-3 py-1.5 text-xs font-medium rounded transition ${
+                    algoTab === "bayesian" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Bayesian Network
                 </button>
               </div>
             </div>
@@ -1730,169 +1711,157 @@ export default function App() {
             {algoTab === "graph" && (
               <div className="space-y-6">
                 {/* Visual Topology Diagram */}
-                <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
                     <div className="flex items-center space-x-2">
-                      <Share2 className="h-5 w-5 text-indigo-700" />
-                      <h4 className="text-sm font-black text-[#0F172A]">Multi-Bank Transaction Graph Topology</h4>
-                      <span className="text-xs text-slate-500 font-mono">(Bank A Cards + Bank B PaySim + Bank C BankSim)</span>
+                      <Share2 className="h-4 w-4 text-slate-600" />
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-900">Multi-Bank Transaction Graph Topology</h4>
+                      <span className="text-[11px] text-slate-400 font-mono">(Bank A Cards + Bank B PaySim + Bank C BankSim)</span>
                     </div>
-                    <div className="flex items-center space-x-3 text-xs font-bold">
-                      <span className="flex items-center space-x-1.5"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> <span>Bank A (Cards)</span></span>
-                      <span className="flex items-center space-x-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span> <span>Bank B (PaySim)</span></span>
-                      <span className="flex items-center space-x-1.5"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> <span>Bank C (BankSim)</span></span>
-                      <span className="flex items-center space-x-1.5"><span className="w-3 h-3 rounded-full bg-rose-500 animate-pulse inline-block"></span> <span>Cashout / Mule Sink</span></span>
+                    <div className="flex items-center space-x-3 text-xs text-slate-600 font-medium">
+                      <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span> <span>Bank A</span></span>
+                      <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block"></span> <span>Bank B</span></span>
+                      <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-600 inline-block"></span> <span>Bank C</span></span>
+                      <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-600 inline-block"></span> <span>Cashout Sink</span></span>
                     </div>
                   </div>
 
                   {/* SVG Topology Representation */}
-                  <div className="bg-slate-900 rounded-xl p-4 overflow-x-auto">
+                  <div className="bg-[#0B1120] rounded-lg p-4 overflow-x-auto border border-slate-800">
                     <svg viewBox="0 0 920 320" className="w-full h-72 min-w-[750px]">
-                      {/* Grid background markers */}
                       <defs>
                         <marker id="arrow" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8" />
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748B" />
                         </marker>
                         <marker id="arrow-fraud" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#EF4444" />
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#E11D48" />
                         </marker>
                         <marker id="arrow-cycle" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#F59E0B" />
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#D97706" />
                         </marker>
                       </defs>
 
                       {/* Directed Edge lines */}
-                      {/* BFS / Laundering Path A_CARD_901 -> B_MOBI_201 */}
-                      <line x1="120" y1="90" x2="340" y2="70" stroke={bfsResult?.traversal_sequence?.includes("B_MOBI_201") ? "#38BDF8" : "#EF4444"} strokeWidth="2.5" markerEnd="url(#arrow-fraud)" />
-                      <text x="220" y="70" fill="#FCA5A5" fontSize="10" fontFamily="monospace">$9,850 (P=0.88)</text>
+                      <line x1="120" y1="90" x2="340" y2="70" stroke={bfsResult?.traversal_sequence?.includes("B_MOBI_201") ? "#38BDF8" : "#E11D48"} strokeWidth="2" markerEnd="url(#arrow-fraud)" />
+                      <text x="220" y="70" fill="#94A3B8" fontSize="10" fontFamily="monospace">$9,850 (P=0.88)</text>
 
-                      {/* A_CARD_901 -> B_MOBI_202 */}
-                      <line x1="120" y1="90" x2="340" y2="150" stroke={bfsResult?.traversal_sequence?.includes("B_MOBI_202") ? "#38BDF8" : "#EF4444"} strokeWidth="2" markerEnd="url(#arrow-fraud)" />
-                      <text x="210" y="130" fill="#FCA5A5" fontSize="10" fontFamily="monospace">$9,500 (P=0.72)</text>
+                      <line x1="120" y1="90" x2="340" y2="150" stroke={bfsResult?.traversal_sequence?.includes("B_MOBI_202") ? "#38BDF8" : "#E11D48"} strokeWidth="1.5" markerEnd="url(#arrow-fraud)" />
+                      <text x="210" y="130" fill="#94A3B8" fontSize="10" fontFamily="monospace">$9,500 (P=0.72)</text>
 
-                      {/* B_MOBI_201 -> B_MOBI_203 */}
-                      <line x1="340" y1="70" x2="560" y2="70" stroke={bfsResult?.traversal_sequence?.includes("B_MOBI_203") ? "#38BDF8" : "#EF4444"} strokeWidth="2.5" markerEnd="url(#arrow-fraud)" />
-                      <text x="440" y="60" fill="#FCA5A5" fontSize="10" fontFamily="monospace">$4,900 (P=0.84)</text>
+                      <line x1="340" y1="70" x2="560" y2="70" stroke={bfsResult?.traversal_sequence?.includes("B_MOBI_203") ? "#38BDF8" : "#E11D48"} strokeWidth="2" markerEnd="url(#arrow-fraud)" />
+                      <text x="440" y="60" fill="#94A3B8" fontSize="10" fontFamily="monospace">$4,900 (P=0.84)</text>
 
-                      {/* B_MOBI_201 -> C_RETL_301 */}
-                      <line x1="340" y1="70" x2="560" y2="170" stroke={bfsResult?.traversal_sequence?.includes("C_RETL_301") ? "#38BDF8" : "#EF4444"} strokeWidth="2" markerEnd="url(#arrow-fraud)" />
-                      <text x="430" y="125" fill="#FCA5A5" fontSize="10" fontFamily="monospace">$4,800 (P=0.79)</text>
+                      <line x1="340" y1="70" x2="560" y2="170" stroke={bfsResult?.traversal_sequence?.includes("C_RETL_301") ? "#38BDF8" : "#E11D48"} strokeWidth="1.5" markerEnd="url(#arrow-fraud)" />
+                      <text x="430" y="125" fill="#94A3B8" fontSize="10" fontFamily="monospace">$4,800 (P=0.79)</text>
 
-                      {/* B_MOBI_203 -> C_RETL_302 (Cashout Terminal) */}
-                      <line x1="560" y1="70" x2="780" y2="110" stroke={astarResult?.path?.includes("C_RETL_302") ? "#F59E0B" : "#EF4444"} strokeWidth="3" markerEnd="url(#arrow-fraud)" />
-                      <text x="660" y="80" fill="#F87171" fontSize="10" fontFamily="monospace" fontWeight="bold">$4,750 (P=0.96) CASH-OUT</text>
+                      <line x1="560" y1="70" x2="780" y2="110" stroke={astarResult?.path?.includes("C_RETL_302") ? "#F59E0B" : "#E11D48"} strokeWidth="2.5" markerEnd="url(#arrow-fraud)" />
+                      <text x="660" y="80" fill="#F43F5E" fontSize="10" fontFamily="monospace">$4,750 (P=0.96) Cash-Out</text>
 
-                      {/* C_RETL_301 -> C_RETL_302 */}
-                      <line x1="560" y1="170" x2="780" y2="110" stroke="#EF4444" strokeWidth="2" markerEnd="url(#arrow-fraud)" />
-                      <text x="660" y="155" fill="#FCA5A5" fontSize="10" fontFamily="monospace">$4,600 (P=0.94)</text>
+                      <line x1="560" y1="170" x2="780" y2="110" stroke="#E11D48" strokeWidth="1.5" markerEnd="url(#arrow-fraud)" />
+                      <text x="660" y="155" fill="#94A3B8" fontSize="10" fontFamily="monospace">$4,600 (P=0.94)</text>
 
-                      {/* DFS Circular Wash Cycle: C_RETL_301 -> C_RETL_303 -> A_CARD_902 -> C_RETL_301 */}
-                      <path d="M 560 170 Q 640 250 560 270" fill="none" stroke={dfsResult ? "#F59E0B" : "#64748B"} strokeWidth="2" markerEnd="url(#arrow-cycle)" />
-                      <text x="610" y="235" fill="#FCD34D" fontSize="9" fontFamily="monospace">Cycle Step 1</text>
+                      {/* DFS Circular Wash Cycle */}
+                      <path d="M 560 170 Q 640 250 560 270" fill="none" stroke={dfsResult ? "#F59E0B" : "#475569"} strokeWidth="1.5" markerEnd="url(#arrow-cycle)" />
+                      <text x="610" y="235" fill="#D97706" fontSize="9" fontFamily="monospace">Cycle Step 1</text>
 
-                      <path d="M 560 270 Q 420 300 340 250" fill="none" stroke={dfsResult ? "#F59E0B" : "#64748B"} strokeWidth="2" markerEnd="url(#arrow-cycle)" />
-                      <text x="440" y="295" fill="#FCD34D" fontSize="9" fontFamily="monospace">Cycle Step 2</text>
+                      <path d="M 560 270 Q 420 300 340 250" fill="none" stroke={dfsResult ? "#F59E0B" : "#475569"} strokeWidth="1.5" markerEnd="url(#arrow-cycle)" />
+                      <text x="440" y="295" fill="#D97706" fontSize="9" fontFamily="monospace">Cycle Step 2</text>
 
-                      <path d="M 340 250 Q 440 200 560 170" fill="none" stroke={dfsResult ? "#F59E0B" : "#64748B"} strokeWidth="2" markerEnd="url(#arrow-cycle)" />
-                      <text x="420" y="220" fill="#FCD34D" fontSize="9" fontFamily="monospace">Cycle Step 3 (Wash Return)</text>
+                      <path d="M 340 250 Q 440 200 560 170" fill="none" stroke={dfsResult ? "#F59E0B" : "#475569"} strokeWidth="1.5" markerEnd="url(#arrow-cycle)" />
+                      <text x="420" y="220" fill="#D97706" fontSize="9" fontFamily="monospace">Cycle Step 3 (Return)</text>
 
                       {/* Benign path */}
-                      <line x1="120" y1="220" x2="120" y2="280" stroke="#475569" strokeWidth="1.5" markerEnd="url(#arrow)" />
-                      <line x1="120" y1="280" x2="780" y2="260" stroke="#475569" strokeWidth="1.5" markerEnd="url(#arrow)" />
+                      <line x1="120" y1="220" x2="120" y2="280" stroke="#334155" strokeWidth="1.5" markerEnd="url(#arrow)" />
+                      <line x1="120" y1="280" x2="780" y2="260" stroke="#334155" strokeWidth="1.5" markerEnd="url(#arrow)" />
 
                       {/* Account Nodes */}
-                      {/* Origin Suspect A_CARD_901 */}
                       <g className="cursor-pointer">
-                        <circle cx="120" cy="90" r="22" fill="#1E3A8A" stroke="#60A5FA" strokeWidth="3" />
-                        <text x="120" y="88" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle">A_CARD</text>
-                        <text x="120" y="100" fill="#93C5FD" fontSize="8" fontFamily="monospace" textAnchor="middle">#901</text>
-                        <text x="120" y="125" fill="#FCA5A5" fontSize="9" fontWeight="bold" textAnchor="middle">Suspect Origin</text>
-                      </g>
-
-                      {/* Bank B Mules */}
-                      <g className="cursor-pointer">
-                        <circle cx="340" cy="70" r="20" fill="#064E3B" stroke="#34D399" strokeWidth="2.5" />
-                        <text x="340" y="68" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle">B_MOBI</text>
-                        <text x="340" y="80" fill="#A7F3D0" fontSize="8" fontFamily="monospace" textAnchor="middle">#201 (Mule)</text>
+                        <circle cx="120" cy="90" r="22" fill="#1E293B" stroke="#3B82F6" strokeWidth="2.5" />
+                        <text x="120" y="88" fill="#F8FAFC" fontSize="9" fontWeight="bold" textAnchor="middle">A_CARD</text>
+                        <text x="120" y="100" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">#901</text>
+                        <text x="120" y="125" fill="#94A3B8" fontSize="8" textAnchor="middle">Suspect Origin</text>
                       </g>
 
                       <g className="cursor-pointer">
-                        <circle cx="340" cy="150" r="18" fill="#064E3B" stroke="#34D399" strokeWidth="2" />
-                        <text x="340" y="148" fill="#FFFFFF" fontSize="8" fontWeight="bold" textAnchor="middle">B_MOBI</text>
-                        <text x="340" y="159" fill="#A7F3D0" fontSize="7" fontFamily="monospace" textAnchor="middle">#202</text>
+                        <circle cx="340" cy="70" r="20" fill="#1E293B" stroke="#10B981" strokeWidth="2" />
+                        <text x="340" y="68" fill="#F8FAFC" fontSize="9" fontWeight="bold" textAnchor="middle">B_MOBI</text>
+                        <text x="340" y="80" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">#201 (Mule)</text>
                       </g>
 
                       <g className="cursor-pointer">
-                        <circle cx="560" cy="70" r="20" fill="#064E3B" stroke="#34D399" strokeWidth="2.5" />
-                        <text x="560" y="68" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle">B_MOBI</text>
-                        <text x="560" y="80" fill="#A7F3D0" fontSize="8" fontFamily="monospace" textAnchor="middle">#203 (Mule)</text>
-                      </g>
-
-                      {/* Bank C Nodes */}
-                      <g className="cursor-pointer">
-                        <circle cx="560" cy="170" r="20" fill="#78350F" stroke="#FBBF24" strokeWidth="2.5" />
-                        <text x="560" y="168" fill="#FFFFFF" fontSize="9" fontWeight="bold" textAnchor="middle">C_RETL</text>
-                        <text x="560" y="180" fill="#FDE68A" fontSize="8" fontFamily="monospace" textAnchor="middle">#301</text>
+                        <circle cx="340" cy="150" r="18" fill="#1E293B" stroke="#10B981" strokeWidth="1.5" />
+                        <text x="340" y="148" fill="#F8FAFC" fontSize="8" fontWeight="bold" textAnchor="middle">B_MOBI</text>
+                        <text x="340" y="159" fill="#94A3B8" fontSize="7" fontFamily="monospace" textAnchor="middle">#202</text>
                       </g>
 
                       <g className="cursor-pointer">
-                        <circle cx="560" cy="270" r="18" fill="#78350F" stroke="#FBBF24" strokeWidth="2" />
-                        <text x="560" y="268" fill="#FFFFFF" fontSize="8" fontWeight="bold" textAnchor="middle">C_RETL</text>
-                        <text x="560" y="279" fill="#FDE68A" fontSize="7" fontFamily="monospace" textAnchor="middle">#303</text>
+                        <circle cx="560" cy="70" r="20" fill="#1E293B" stroke="#10B981" strokeWidth="2" />
+                        <text x="560" y="68" fill="#F8FAFC" fontSize="9" fontWeight="bold" textAnchor="middle">B_MOBI</text>
+                        <text x="560" y="80" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">#203 (Mule)</text>
                       </g>
 
                       <g className="cursor-pointer">
-                        <circle cx="340" cy="250" r="18" fill="#1E3A8A" stroke="#60A5FA" strokeWidth="2" />
-                        <text x="340" y="248" fill="#FFFFFF" fontSize="8" fontWeight="bold" textAnchor="middle">A_CARD</text>
-                        <text x="340" y="259" fill="#93C5FD" fontSize="7" fontFamily="monospace" textAnchor="middle">#902</text>
+                        <circle cx="560" cy="170" r="20" fill="#1E293B" stroke="#F59E0B" strokeWidth="2" />
+                        <text x="560" y="168" fill="#F8FAFC" fontSize="9" fontWeight="bold" textAnchor="middle">C_RETL</text>
+                        <text x="560" y="180" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">#301</text>
                       </g>
 
-                      {/* Cashout Terminal Sink */}
                       <g className="cursor-pointer">
-                        <circle cx="780" cy="110" r="24" fill="#881337" stroke="#F43F5E" strokeWidth="3" />
-                        <text x="780" y="108" fill="#FFFFFF" fontSize="9" fontWeight="extrabold" textAnchor="middle">C_RETL_302</text>
-                        <text x="780" y="120" fill="#FECDD3" fontSize="8" fontFamily="monospace" textAnchor="middle">ATM / Sink</text>
-                        <text x="780" y="148" fill="#FDA4AF" fontSize="9" fontWeight="bold" textAnchor="middle">🚨 Target Cashout</text>
+                        <circle cx="560" cy="270" r="18" fill="#1E293B" stroke="#F59E0B" strokeWidth="1.5" />
+                        <text x="560" y="268" fill="#F8FAFC" fontSize="8" fontWeight="bold" textAnchor="middle">C_RETL</text>
+                        <text x="560" y="279" fill="#94A3B8" fontSize="7" fontFamily="monospace" textAnchor="middle">#303</text>
                       </g>
 
-                      {/* Benign nodes */}
-                      <circle cx="120" cy="220" r="14" fill="#334155" stroke="#64748B" strokeWidth="1.5" />
+                      <g className="cursor-pointer">
+                        <circle cx="340" cy="250" r="18" fill="#1E293B" stroke="#3B82F6" strokeWidth="1.5" />
+                        <text x="340" y="248" fill="#F8FAFC" fontSize="8" fontWeight="bold" textAnchor="middle">A_CARD</text>
+                        <text x="340" y="259" fill="#94A3B8" fontSize="7" fontFamily="monospace" textAnchor="middle">#902</text>
+                      </g>
+
+                      <g className="cursor-pointer">
+                        <circle cx="780" cy="110" r="24" fill="#1E293B" stroke="#E11D48" strokeWidth="2.5" />
+                        <text x="780" y="108" fill="#F8FAFC" fontSize="9" fontWeight="bold" textAnchor="middle">C_RETL_302</text>
+                        <text x="780" y="120" fill="#FDA4AF" fontSize="8" fontFamily="monospace" textAnchor="middle">ATM / Sink</text>
+                        <text x="780" y="148" fill="#E11D48" fontSize="8" textAnchor="middle">Target Cashout</text>
+                      </g>
+
+                      <circle cx="120" cy="220" r="14" fill="#1E293B" stroke="#475569" strokeWidth="1" />
                       <text x="120" y="224" fill="#94A3B8" fontSize="7" textAnchor="middle">A_105</text>
-                      <circle cx="120" cy="280" r="14" fill="#334155" stroke="#64748B" strokeWidth="1.5" />
+                      <circle cx="120" cy="280" r="14" fill="#1E293B" stroke="#475569" strokeWidth="1" />
                       <text x="120" y="284" fill="#94A3B8" fontSize="7" textAnchor="middle">A_440</text>
-                      <circle cx="780" cy="260" r="14" fill="#334155" stroke="#64748B" strokeWidth="1.5" />
+                      <circle cx="780" cy="260" r="14" fill="#1E293B" stroke="#475569" strokeWidth="1" />
                       <text x="780" y="264" fill="#94A3B8" fontSize="7" textAnchor="middle">C_700</text>
                     </svg>
                   </div>
                 </div>
 
                 {/* Algorithmic Control Grid (BFS, DFS, A*) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* ALGORITHM 1: BFS Money Mule Layering */}
-                  <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col justify-between space-y-3">
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
-                        <span className="p-1.5 bg-sky-100 text-sky-800 rounded font-black text-xs">ALGO 1</span>
-                        <h4 className="text-sm font-black text-[#0F172A]">BFS — Money Mule Layering</h4>
+                        <span className="p-1 bg-slate-100 text-slate-700 rounded text-[10px] font-mono font-medium">ALGO 1</span>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-900">BFS — Money Mule Layering</h4>
                       </div>
-                      <p className="text-xs text-slate-600">
+                      <p className="text-xs text-slate-500">
                         Breadth-First Search traverses level-by-level up to $K$ hops to identify rapid fund dispersion and layering across mule accounts.
                       </p>
 
-                      <div className="space-y-2 pt-2">
-                        <label className="text-[11px] font-bold text-slate-700">Root Suspect Account:</label>
+                      <div className="space-y-1.5 pt-1">
+                        <label className="text-[11px] font-medium text-slate-700">Root Suspect Account:</label>
                         <input
                           type="text"
                           value={bfsStartNode}
                           onChange={(e) => setBfsStartNode(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800"
+                          className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 text-xs font-mono font-medium text-slate-900"
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-[11px] font-bold text-slate-700">
-                          <span>Max Traversal Depth:</span>
-                          <span className="font-mono text-indigo-700">{bfsMaxDepth} hops</span>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-[11px] font-medium text-slate-700">
+                          <span>Max Depth:</span>
+                          <span className="font-mono text-slate-900">{bfsMaxDepth} hops</span>
                         </div>
                         <input
                           type="range"
@@ -1900,7 +1869,7 @@ export default function App() {
                           max="4"
                           value={bfsMaxDepth}
                           onChange={(e) => setBfsMaxDepth(parseInt(e.target.value))}
-                          className="w-full accent-indigo-600"
+                          className="w-full accent-slate-900"
                         />
                       </div>
                     </div>
@@ -1908,66 +1877,66 @@ export default function App() {
                     <button
                       onClick={handleRunBFS}
                       disabled={loadingBFS}
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs shadow-md transition disabled:opacity-50"
+                      className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-medium transition disabled:opacity-50"
                     >
-                      {loadingBFS ? "Traversing Levels..." : "▶ Run BFS Mule Trace"}
+                      {loadingBFS ? "Traversing..." : "Execute BFS Trace"}
                     </button>
                   </div>
 
                   {/* ALGORITHM 2: DFS Circular Wash Cycle Detection */}
-                  <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col justify-between space-y-3">
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
-                        <span className="p-1.5 bg-amber-100 text-amber-800 rounded font-black text-xs">ALGO 2</span>
-                        <h4 className="text-sm font-black text-[#0F172A]">DFS — Circular Laundering Cycles</h4>
+                        <span className="p-1 bg-slate-100 text-slate-700 rounded text-[10px] font-mono font-medium">ALGO 2</span>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-900">DFS — Wash-Trading Cycles</h4>
                       </div>
-                      <p className="text-xs text-slate-600">
+                      <p className="text-xs text-slate-500">
                         Depth-First Search utilizes an active recursion stack to catch back-edges that form closed wash-trading loops (A → B → C → A).
                       </p>
 
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-1 text-amber-950 font-medium">
-                        <div className="font-bold">Cycle Detection Logic:</div>
-                        <div>Maintains 3-state coloring (Unvisited / Active Recursion / Finished) to isolate cyclic topologies in O(V + E) time.</div>
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
+                        <div className="font-medium text-slate-800">Recursion Stack Tracking:</div>
+                        <div>Detects closed circular routes in O(V + E) time without visiting duplicate permutations.</div>
                       </div>
                     </div>
 
                     <button
                       onClick={handleRunDFS}
                       disabled={loadingDFS}
-                      className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shadow-md transition disabled:opacity-50"
+                      className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-medium transition disabled:opacity-50"
                     >
-                      {loadingDFS ? "Detecting Loops..." : "▶ Run DFS Cycle Finder"}
+                      {loadingDFS ? "Detecting Loops..." : "Detect Cycles (DFS)"}
                     </button>
                   </div>
 
                   {/* ALGORITHM 3: A* Informed Heuristic Search */}
-                  <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col justify-between space-y-3">
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
-                        <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded font-black text-xs">ALGO 3</span>
-                        <h4 className="text-sm font-black text-[#0F172A]">A* vs Dijkstra Laundering Path</h4>
+                        <span className="p-1 bg-slate-100 text-slate-700 rounded text-[10px] font-mono font-medium">ALGO 3</span>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-900">A* vs Dijkstra Laundering Path</h4>
                       </div>
-                      <p className="text-xs text-slate-600">
+                      <p className="text-xs text-slate-500">
                         Uses admissible cashout proximity heuristic <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">f(n) = g(n) + h(n)</code> to accelerate escape pathfinding vs uninformed Dijkstra.
                       </p>
 
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <div>
-                          <label className="text-[10px] font-bold text-slate-700">Origin Account:</label>
+                          <label className="text-[10px] font-medium text-slate-700">Origin:</label>
                           <input
                             type="text"
                             value={astarStartNode}
                             onChange={(e) => setAstarStartNode(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold"
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-mono font-medium"
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-700">Target Cashout:</label>
+                          <label className="text-[10px] font-medium text-slate-700">Target:</label>
                           <input
                             type="text"
                             value={astarEndNode}
                             onChange={(e) => setAstarEndNode(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold"
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-mono font-medium"
                           />
                         </div>
                       </div>
@@ -1976,52 +1945,52 @@ export default function App() {
                     <button
                       onClick={handleRunAStar}
                       disabled={loadingAStar}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-md transition disabled:opacity-50"
+                      className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-medium transition disabled:opacity-50"
                     >
-                      {loadingAStar ? "Evaluating Heuristics..." : "▶ Compare A* & Dijkstra"}
+                      {loadingAStar ? "Evaluating..." : "Compare A* vs Dijkstra"}
                     </button>
                   </div>
                 </div>
 
                 {/* Live Algorithmic Output Results Panel */}
                 {(bfsResult || dfsResult || astarResult) && (
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 text-white space-y-4 shadow-md">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 text-slate-200 space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                       <div className="flex items-center space-x-2">
-                        <Terminal className="h-5 w-5 text-amber-400" />
-                        <h4 className="text-sm font-black text-amber-300">Live Algorithmic Execution Output</h4>
+                        <Terminal className="h-4 w-4 text-slate-400" />
+                        <h4 className="text-xs font-medium text-slate-200">Execution Output</h4>
                       </div>
-                      <span className="text-xs text-slate-400 font-mono">Status: Execution Verified</span>
+                      <span className="text-[11px] text-slate-400 font-mono">Status: Verified</span>
                     </div>
 
                     {/* BFS Details */}
                     {bfsResult && (
-                      <div className="space-y-3 bg-slate-800/60 p-4 rounded-lg border border-slate-700">
+                      <div className="space-y-2 bg-slate-900 p-3 rounded border border-slate-800 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-sky-400">BFS Multi-Hop Result (Origin: {bfsResult.origin})</span>
-                          <span className="px-2 py-0.5 bg-sky-900/60 text-sky-200 border border-sky-500/30 text-[10px] font-mono rounded">
+                          <span className="font-semibold text-slate-200">BFS Multi-Hop Result (Origin: {bfsResult.origin})</span>
+                          <span className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-mono rounded">
                             {bfsResult.total_visited} Nodes Visited ({bfsResult.complexity})
                           </span>
                         </div>
 
-                        <div className="text-xs text-slate-300">
-                          <strong className="text-white">Traversal Sequence: </strong>
-                          <span className="font-mono text-cyan-300">{bfsResult.traversal_sequence?.join(" ➔ ")}</span>
+                        <div className="text-slate-400">
+                          <strong className="text-slate-200">Traversal Sequence: </strong>
+                          <span className="font-mono text-slate-300">{bfsResult.traversal_sequence?.join(" -> ")}</span>
                         </div>
 
                         {bfsResult.flagged_mules?.length > 0 && (
-                          <div className="space-y-1.5 pt-2">
-                            <span className="text-xs font-bold text-rose-400">🚨 Identified Downstream Money Mules:</span>
+                          <div className="space-y-1.5 pt-1">
+                            <span className="text-xs font-medium text-slate-300">Identified Downstream Mules:</span>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                               {bfsResult.flagged_mules.map((m: any, idx: number) => (
-                                <div key={idx} className="bg-slate-900/80 p-2.5 rounded border border-rose-900/50 flex justify-between items-center">
+                                <div key={idx} className="bg-slate-950 p-2 rounded border border-slate-800 flex justify-between items-center">
                                   <div>
-                                    <div className="font-mono font-bold text-rose-300">{m.account}</div>
-                                    <div className="text-[10px] text-slate-400">{m.bank} · Layer {m.layer}</div>
+                                    <div className="font-mono font-medium text-slate-200">{m.account}</div>
+                                    <div className="text-[10px] text-slate-500">{m.bank} · Layer {m.layer}</div>
                                   </div>
                                   <div className="text-right">
-                                    <div className="font-mono font-bold text-amber-400">${m.exposure_amount?.toLocaleString()}</div>
-                                    <div className="text-[10px] text-rose-400 font-bold">Fraud Prob: {m.fraud_score}</div>
+                                    <div className="font-mono font-medium text-slate-200">${m.exposure_amount?.toLocaleString()}</div>
+                                    <div className="text-[10px] text-rose-400 font-mono">Fraud Prob: {m.fraud_score}</div>
                                   </div>
                                 </div>
                               ))}
@@ -2033,25 +2002,27 @@ export default function App() {
 
                     {/* DFS Details */}
                     {dfsResult && (
-                      <div className="space-y-3 bg-slate-800/60 p-4 rounded-lg border border-slate-700">
+                      <div className="space-y-2 bg-slate-900 p-3 rounded border border-slate-800 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-amber-400">DFS Circular Cycle Discovery</span>
-                          <span className="px-2 py-0.5 bg-amber-900/60 text-amber-200 border border-amber-500/30 text-[10px] font-mono rounded">
-                            {dfsResult.cycles_detected} Closed Cycles Found
+                          <span className="font-semibold text-slate-200">DFS Circular Cycle Discovery</span>
+                          <span className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-mono rounded">
+                            {dfsResult.cycles_detected} Closed Cycles
                           </span>
                         </div>
 
                         {dfsResult.cycles?.map((cyc: any, cIdx: number) => (
-                          <div key={cIdx} className="p-3 bg-slate-900/90 border border-amber-500/40 rounded space-y-1.5">
+                          <div key={cIdx} className="p-2.5 bg-slate-950 border border-slate-800 rounded space-y-1">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="font-bold text-amber-300">{cyc.cycle_id}: {cyc.type}</span>
-                              <span className="px-2 py-0.5 bg-rose-600 text-white rounded text-[10px] font-bold">SEVERITY: {cyc.severity}</span>
+                              <span className="font-medium text-slate-200">{cyc.cycle_id}: {cyc.type}</span>
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-rose-950 text-rose-300 border border-rose-800">
+                                {cyc.severity}
+                              </span>
                             </div>
-                            <div className="text-xs font-mono text-cyan-300">
-                              {cyc.nodes?.join(" ➔ ")}
+                            <div className="text-xs font-mono text-slate-300">
+                              {cyc.nodes?.join(" -> ")}
                             </div>
-                            <div className="text-[11px] text-slate-400">
-                              Closed funds loop confirmed. Funds circulate back to origin party to fabricate velocity or clean transaction history.
+                            <div className="text-[11px] text-slate-500">
+                              Closed funds loop confirmed. Funds circulate back to origin party to fabricate volume or clean history.
                             </div>
                           </div>
                         ))}
@@ -2060,40 +2031,32 @@ export default function App() {
 
                     {/* A* vs Dijkstra Details */}
                     {astarResult && (
-                      <div className="space-y-3 bg-slate-800/60 p-4 rounded-lg border border-slate-700">
+                      <div className="space-y-2 bg-slate-900 p-3 rounded border border-slate-800 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-emerald-400">A* Search vs. Dijkstra Performance Benchmark</span>
-                          <span className="px-2 py-0.5 bg-emerald-900/60 text-emerald-200 border border-emerald-500/30 text-[10px] font-mono rounded">
+                          <span className="font-semibold text-slate-200">A* Search vs. Dijkstra Performance Benchmark</span>
+                          <span className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-mono rounded">
                             {astarResult.comparison?.heuristic_efficiency_gain}
                           </span>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                          {/* A* Card */}
-                          <div className="bg-slate-900/90 p-3 rounded border border-emerald-500/40 space-y-2">
-                            <div className="font-bold text-emerald-300 flex justify-between">
+                          <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-1.5">
+                            <div className="font-medium text-slate-200 flex justify-between">
                               <span>A* Informed Search:</span>
-                              <span className="font-mono text-emerald-400">{astarResult.astar?.nodes_expanded} Nodes Expanded</span>
+                              <span className="font-mono text-slate-300">{astarResult.astar?.nodes_expanded} Nodes Expanded</span>
                             </div>
-                            <div className="text-slate-300 font-mono text-[11px]">
-                              Route: {astarResult.astar?.path?.join(" ➔ ")}
-                            </div>
-                            <div className="text-[10px] text-slate-400">
-                              Heuristic: {astarResult.astar?.heuristic_type}
+                            <div className="text-slate-400 font-mono text-[11px]">
+                              Route: {astarResult.astar?.path?.join(" -> ")}
                             </div>
                           </div>
 
-                          {/* Dijkstra Card */}
-                          <div className="bg-slate-900/90 p-3 rounded border border-slate-700 space-y-2">
-                            <div className="font-bold text-slate-300 flex justify-between">
+                          <div className="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-1.5">
+                            <div className="font-medium text-slate-200 flex justify-between">
                               <span>Dijkstra (Uninformed):</span>
                               <span className="font-mono text-slate-400">{astarResult.dijkstra?.nodes_expanded} Nodes Expanded</span>
                             </div>
-                            <div className="text-slate-300 font-mono text-[11px]">
-                              Route: {astarResult.dijkstra?.path?.join(" ➔ ")}
-                            </div>
-                            <div className="text-[10px] text-slate-400">
-                              Exhaustively scans all directions without destination terminal guidance.
+                            <div className="text-slate-400 font-mono text-[11px]">
+                              Route: {astarResult.dijkstra?.path?.join(" -> ")}
                             </div>
                           </div>
                         </div>
@@ -2107,57 +2070,55 @@ export default function App() {
             {/* SUBTAB 2: FORENSIC HEURISTICS & BENFORD'S LAW */}
             {algoTab === "heuristics" && (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* HEURISTIC 1: Benford's Law Chi-Square Forensic Accounting */}
-                  <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-                    <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Benford's Law Chi-Square Analyzer */}
+                  <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
+                    <div className="space-y-1.5">
                       <div className="flex items-center space-x-2">
-                        <span className="p-1.5 bg-purple-100 text-purple-800 rounded font-black text-xs">HEURISTIC 1</span>
-                        <h4 className="text-sm font-black text-[#0F172A]">Benford's Law Chi-Square Analyzer</h4>
+                        <span className="p-1 bg-slate-100 text-slate-700 rounded text-[10px] font-mono font-medium">HEURISTIC 1</span>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-900">Benford's Law Chi-Square Analyzer</h4>
                       </div>
-                      <p className="text-xs text-slate-600">
+                      <p className="text-xs text-slate-500">
                         In natural commercial banking, the frequency of leading digit <code className="font-mono">d</code> follows <code className="font-mono">P(d) = log10(1 + 1/d)</code> (~30.1% start with digit 1). Automated fraudulent scripts fabricate unnatural amounts that fail the <code className="font-mono">Chi-Square (χ²)</code> test.
                       </p>
                     </div>
 
-                    <div className="flex space-x-3 pt-2">
+                    <div className="flex space-x-2.5 pt-1">
                       <button
                         onClick={() => handleRunBenford(false)}
                         disabled={loadingBenford}
-                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow transition disabled:opacity-50"
+                        className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-medium transition disabled:opacity-50"
                       >
                         {loadingBenford && !benfordSynthetic ? "Testing..." : "Test Natural Transactions"}
                       </button>
                       <button
                         onClick={() => handleRunBenford(true)}
                         disabled={loadingBenford}
-                        className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow transition disabled:opacity-50"
+                        className="flex-1 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-medium transition disabled:opacity-50"
                       >
-                        {loadingBenford && benfordSynthetic ? "Injecting..." : "Inject Scripted Anomaly"}
+                        {loadingBenford && benfordSynthetic ? "Injecting..." : "Inject Fabricated Sample"}
                       </button>
                     </div>
 
-                    {/* Benford Output */}
                     {benfordResult && (
-                      <div className="mt-4 p-4 bg-slate-900 rounded-xl text-white space-y-3 font-sans">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-300">Goodness-of-Fit Statistic:</span>
-                          <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${
-                            benfordResult.is_anomalous ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"
+                      <div className="mt-3 p-4 bg-slate-900 rounded-lg text-slate-200 space-y-3 font-sans">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium text-slate-400">Goodness-of-Fit Statistic:</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-mono font-medium ${
+                            benfordResult.is_anomalous ? "bg-rose-950 text-rose-300 border border-rose-800" : "bg-emerald-950 text-emerald-300 border border-emerald-800"
                           }`}>
                             χ² = {benfordResult.chi_square_statistic} (Cutoff: {benfordResult.critical_threshold_p01})
                           </span>
                         </div>
 
-                        <div className={`p-2.5 rounded text-xs font-bold ${
-                          benfordResult.is_anomalous ? "bg-rose-950/70 border border-rose-800 text-rose-300" : "bg-emerald-950/70 border border-emerald-800 text-emerald-300"
+                        <div className={`p-2.5 rounded text-xs font-medium ${
+                          benfordResult.is_anomalous ? "bg-rose-950/50 border border-rose-800/60 text-rose-300" : "bg-emerald-950/50 border border-emerald-800/60 text-emerald-300"
                         }`}>
                           {benfordResult.risk_level}: {benfordResult.explanation}
                         </div>
 
-                        {/* Digit Distribution Comparison Bars */}
-                        <div className="space-y-1.5 pt-2">
-                          <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                        <div className="space-y-1 pt-1">
+                          <div className="flex justify-between text-[10px] text-slate-500 font-mono">
                             <span>Digit</span>
                             <span>Observed % (Bars) vs Expected Benford % (Marker)</span>
                           </div>
@@ -2166,15 +2127,15 @@ export default function App() {
                             const exp = (benfordResult.expected_distribution?.[d] || 0) * 100;
                             return (
                               <div key={d} className="flex items-center space-x-2 text-xs">
-                                <span className="w-4 font-mono font-bold text-amber-300">{d}</span>
-                                <div className="flex-1 bg-slate-800 rounded-full h-3 relative overflow-hidden">
+                                <span className="w-3 font-mono font-medium text-slate-400">{d}</span>
+                                <div className="flex-1 bg-slate-800 rounded-full h-2 relative overflow-hidden">
                                   <div
                                     className={`h-full ${benfordResult.is_anomalous ? "bg-rose-500" : "bg-emerald-500"}`}
                                     style={{ width: `${Math.min(obs * 2, 100)}%` }}
                                   ></div>
                                 </div>
-                                <span className="w-24 text-[10px] font-mono text-slate-300 text-right">
-                                  {obs.toFixed(1)}% (Exp: {exp.toFixed(1)}%)
+                                <span className="w-20 text-[10px] font-mono text-slate-400 text-right">
+                                  {obs.toFixed(1)}% ({exp.toFixed(1)}%)
                                 </span>
                               </div>
                             );
@@ -2184,59 +2145,58 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* HEURISTIC 2: Smurfing & Structuring Heuristic AML */}
-                  <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-                    <div className="space-y-2">
+                  {/* Smurfing & Structuring Heuristic */}
+                  <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
+                    <div className="space-y-1.5">
                       <div className="flex items-center space-x-2">
-                        <span className="p-1.5 bg-blue-100 text-blue-800 rounded font-black text-xs">HEURISTIC 2</span>
-                        <h4 className="text-sm font-black text-[#0F172A]">AML Smurfing & Structuring Detector</h4>
+                        <span className="p-1 bg-slate-100 text-slate-700 rounded text-[10px] font-mono font-medium">HEURISTIC 2</span>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-900">AML Smurfing & Structuring Detector</h4>
                       </div>
-                      <p className="text-xs text-slate-600">
-                        Detects intentional structuring where transactions are engineered right below reporting limits (e.g., transfers of <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">$9,200 to $9,950</code> to avoid the $10,000 regulatory AML audit threshold).
+                      <p className="text-xs text-slate-500">
+                        Detects intentional structuring where transactions are engineered right below reporting limits (e.g., transfers of <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">$9,200 to $9,950</code> to evade the $10,000 regulatory AML audit threshold).
                       </p>
                     </div>
 
-                    <div className="flex space-x-3 pt-2">
+                    <div className="flex space-x-2.5 pt-1">
                       <button
                         onClick={() => handleRunSmurfing("smurfed")}
                         disabled={loadingSmurfing}
-                        className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow transition disabled:opacity-50"
+                        className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-medium transition disabled:opacity-50"
                       >
                         {loadingSmurfing && smurfingSampleType === "smurfed" ? "Auditing..." : "Audit Smurfed Batch ($9k+)"}
                       </button>
                       <button
                         onClick={() => handleRunSmurfing("normal")}
                         disabled={loadingSmurfing}
-                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow transition disabled:opacity-50"
+                        className="flex-1 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-medium transition disabled:opacity-50"
                       >
                         {loadingSmurfing && smurfingSampleType === "normal" ? "Auditing..." : "Audit Benign Transfers"}
                       </button>
                     </div>
 
-                    {/* Smurfing Output */}
                     {smurfingResult && (
-                      <div className="mt-4 p-4 bg-slate-900 rounded-xl text-white space-y-3 font-sans">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-300">Monitored Threshold Band:</span>
-                          <span className="font-mono text-amber-300 font-bold text-xs">{smurfingResult.monitored_band}</span>
+                      <div className="mt-3 p-4 bg-slate-900 rounded-lg text-slate-200 space-y-3 font-sans">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400 font-medium">Monitored Band:</span>
+                          <span className="font-mono text-slate-200 font-semibold">{smurfingResult.monitored_band}</span>
                         </div>
 
-                        <div className={`p-2.5 rounded text-xs font-bold flex justify-between items-center ${
-                          smurfingResult.structuring_detected ? "bg-rose-950/70 border border-rose-800 text-rose-300" : "bg-emerald-950/70 border border-emerald-800 text-emerald-300"
+                        <div className={`p-2.5 rounded text-xs font-medium flex justify-between items-center ${
+                          smurfingResult.structuring_detected ? "bg-rose-950/60 border border-rose-800/70 text-rose-300" : "bg-emerald-950/60 border border-emerald-800/70 text-emerald-300"
                         }`}>
-                          <span>{smurfingResult.structuring_detected ? "🚨 Structuring Violation Flagged!" : "✅ No Structuring Detected"}</span>
+                          <span>{smurfingResult.structuring_detected ? "Structuring Violation Flagged" : "No Structuring Detected"}</span>
                           <span className="px-2 py-0.5 rounded bg-black/40 text-[10px] font-mono">{smurfingResult.heuristic_action}</span>
                         </div>
 
-                        <div className="space-y-1.5 pt-1">
-                          <div className="text-[11px] font-bold text-slate-400">Flagged Transaction Sequence:</div>
+                        <div className="space-y-1 pt-1">
+                          <div className="text-[10px] font-medium text-slate-400">Flagged Transactions:</div>
                           {smurfingResult.flagged_transactions?.map((tx: any, idx: number) => (
-                            <div key={idx} className="p-2 bg-slate-800 rounded flex justify-between items-center text-xs font-mono">
+                            <div key={idx} className="p-2 bg-slate-950 rounded flex justify-between items-center text-xs font-mono">
                               <div>
-                                <span className="font-bold text-cyan-300">{tx.tx_id}</span>
-                                <span className="text-slate-400 text-[10px] ml-2">({tx.sender} ➔ {tx.receiver})</span>
+                                <span className="text-slate-200 font-semibold">{tx.tx_id}</span>
+                                <span className="text-slate-500 text-[10px] ml-2">({tx.sender} &rarr; {tx.receiver})</span>
                               </div>
-                              <span className="font-bold text-rose-400">${tx.amount?.toLocaleString()}</span>
+                              <span className="text-rose-400 font-semibold">${tx.amount?.toLocaleString()}</span>
                             </div>
                           ))}
                         </div>
@@ -2250,54 +2210,52 @@ export default function App() {
             {/* SUBTAB 3: SIMULATED ANNEALING CLIENT WEIGHT OPTIMIZATION */}
             {algoTab === "annealing" && (
               <div className="space-y-6">
-                <div className="bg-white border-2 border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-                  <div className="space-y-2">
+                <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
+                  <div className="space-y-1.5">
                     <div className="flex items-center space-x-2">
-                      <span className="p-1.5 bg-amber-100 text-amber-800 rounded font-black text-xs">META-HEURISTIC</span>
-                      <h4 className="text-sm font-black text-[#0F172A]">Simulated Annealing FL Client Weight Optimizer</h4>
+                      <span className="p-1 bg-slate-100 text-slate-700 rounded text-[10px] font-mono font-medium">META-HEURISTIC</span>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-900">Simulated Annealing Client Weight Optimizer</h4>
                     </div>
-                    <p className="text-xs text-slate-600">
-                      Standard FedAvg assigns client weights based strictly on sample size. When banks present heterogeneous latency and anomaly risk, a <strong>Simulated Annealing</strong> cooling schedule explores client combinations to maximize PR-AUC while penalizing latency and Frobenius norm deviation.
+                    <p className="text-xs text-slate-500">
+                      Standard FedAvg assigns client weights based strictly on sample size. When banks present heterogeneous latency and anomaly risk, <strong>Simulated Annealing</strong> explores client combinations to maximize PR-AUC while penalizing latency and Frobenius norm deviation.
                     </p>
                   </div>
 
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-                    <div className="flex space-x-4 text-xs font-bold text-slate-700">
-                      <span>Initial Temp: <strong className="font-mono text-indigo-700">T₀ = 100.0</strong></span>
-                      <span>Cooling Rate: <strong className="font-mono text-indigo-700">α = 0.92</strong></span>
-                      <span>Max Iterations: <strong className="font-mono text-indigo-700">150 steps</strong></span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                    <div className="flex space-x-4 text-xs text-slate-600 font-medium">
+                      <span>T₀ = <strong className="font-mono text-slate-900">100.0</strong></span>
+                      <span>Cooling α = <strong className="font-mono text-slate-900">0.92</strong></span>
+                      <span>Iterations = <strong className="font-mono text-slate-900">150 steps</strong></span>
                     </div>
 
                     <button
                       onClick={handleRunSA}
                       disabled={loadingSA}
-                      className="px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-bold text-xs shadow-md transition disabled:opacity-50"
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-medium transition disabled:opacity-50"
                     >
-                      {loadingSA ? "Annealing Cooling Schedule..." : "▶ Run Simulated Annealing"}
+                      {loadingSA ? "Annealing..." : "Run Simulated Annealing"}
                     </button>
                   </div>
 
-                  {/* SA Output */}
                   {saResult && (
-                    <div className="mt-4 p-5 bg-slate-900 rounded-xl text-white space-y-4 font-sans">
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                        <span className="text-xs font-bold text-amber-300">Optimal Aggregation Weights Converged</span>
-                        <span className="px-2.5 py-0.5 bg-indigo-900/60 text-indigo-200 border border-indigo-500/30 text-xs font-mono rounded">
-                          Best Fitness Score: {saResult.best_fitness_score}
+                    <div className="mt-3 p-4 bg-slate-900 rounded-lg text-slate-200 space-y-3 font-sans">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-xs">
+                        <span className="font-medium text-slate-200">Optimal Aggregation Weights Converged</span>
+                        <span className="px-2 py-0.5 bg-slate-800 text-slate-300 text-xs font-mono rounded">
+                          Best Fitness: {saResult.best_fitness_score}
                         </span>
                       </div>
 
-                      {/* Client Weight Bars */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         {Object.entries(saResult.optimized_client_weights || {}).map(([bankName, weight]: [string, any], idx) => (
-                          <div key={idx} className="bg-slate-800 p-3.5 rounded-lg border border-slate-700 space-y-2">
-                            <div className="text-xs font-bold text-slate-200 truncate">{bankName}</div>
-                            <div className="text-xl font-black font-mono text-amber-400">
+                          <div key={idx} className="bg-slate-950 p-3 rounded border border-slate-800 space-y-1.5">
+                            <div className="text-xs text-slate-400 font-medium truncate">{bankName}</div>
+                            <div className="text-lg font-bold font-mono text-slate-100">
                               {(weight * 100).toFixed(1)}%
                             </div>
-                            <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
+                            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                               <div
-                                className="h-full bg-amber-500 rounded-full"
+                                className="h-full bg-slate-300 rounded-full"
                                 style={{ width: `${Math.min(weight * 100, 100)}%` }}
                               ></div>
                             </div>
@@ -2305,30 +2263,398 @@ export default function App() {
                         ))}
                       </div>
 
-                      {/* Cooling Steps Table */}
-                      <div className="space-y-2 pt-2">
-                        <div className="text-xs font-bold text-slate-300">Cooling Trajectory Samples:</div>
+                      <div className="space-y-1.5 pt-1">
+                        <div className="text-[11px] font-medium text-slate-400">Cooling Trajectory Samples:</div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-xs font-mono text-slate-300">
                             <thead>
-                              <tr className="border-b border-slate-800 text-slate-500 font-bold">
+                              <tr className="border-b border-slate-800 text-slate-500 font-medium text-[10px]">
                                 <th className="py-1 px-2">Step</th>
-                                <th className="py-1 px-2">Temperature (T)</th>
-                                <th className="py-1 px-2">Fitness Score</th>
-                                <th className="py-1 px-2">State Weights [Bank A, B, C]</th>
+                                <th className="py-1 px-2">Temp (T)</th>
+                                <th className="py-1 px-2">Fitness</th>
+                                <th className="py-1 px-2">Weights [A, B, C]</th>
                               </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-slate-800/40">
                               {saResult.cooling_history?.map((h: any, sIdx: number) => (
-                                <tr key={sIdx} className="border-b border-slate-800/50 hover:bg-slate-800/30">
-                                  <td className="py-1 px-2 font-bold text-indigo-400">#{h.step}</td>
-                                  <td className="py-1 px-2 text-slate-400">{h.temp}°</td>
-                                  <td className="py-1 px-2 text-amber-300">{h.fitness}</td>
-                                  <td className="py-1 px-2 text-cyan-300 font-mono">[{h.weights.join(", ")}]</td>
+                                <tr key={sIdx} className="hover:bg-slate-800/20">
+                                  <td className="py-1 px-2 text-slate-400">#{h.step}</td>
+                                  <td className="py-1 px-2 text-slate-500">{h.temp}°</td>
+                                  <td className="py-1 px-2 text-slate-200">{h.fitness}</td>
+                                  <td className="py-1 px-2 text-slate-300 font-mono">[{h.weights.join(", ")}]</td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SUBTAB 4: BAYESIAN BELIEF NETWORK */}
+            {algoTab === "bayesian" && (
+              <div className="space-y-6">
+                <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="p-1 bg-slate-100 text-slate-700 rounded text-[10px] font-mono font-medium">PROBABILISTIC AI</span>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-900">Bayesian Belief Network — Causal Fraud Inference & XAI</h4>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Evaluates exact conditional probability distributions <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">P(Fraud | Evidence)</code> using <strong>Exact Variable Elimination</strong>. Enables regulatory causal explainability and reasoning under partial data.
+                      </p>
+                    </div>
+
+                    <div className="flex space-x-2 shrink-0">
+                      <button
+                        onClick={() => {
+                          const empty = {};
+                          setBayesianEvidence(empty);
+                          handleRunBayesianQuery(empty);
+                        }}
+                        className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition"
+                      >
+                        Reset Evidence
+                      </button>
+                      <button
+                        onClick={() => {
+                          const preset = { TimeRisk: "ODD_HOURS", ChannelRisk: "HIGH_RISK", AmountSpike: "SPIKE", BalanceEmptied: "YES" };
+                          setBayesianEvidence(preset);
+                          handleRunBayesianQuery(preset);
+                        }}
+                        className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded transition"
+                      >
+                        Load Preset: Account Takeover
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Interactive Causal DAG Visualizer (SVG) */}
+                  <div className="bg-[#0B1120] rounded-lg p-4 overflow-x-auto border border-slate-800">
+                    <div className="text-[11px] font-mono text-slate-400 mb-2 flex justify-between">
+                      <span>Probabilistic Directed Acyclic Graph (DAG)</span>
+                      <span className="text-slate-400">Active evidence nodes highlighted with rings</span>
+                    </div>
+
+                    <svg viewBox="0 0 860 260" className="w-full h-64 min-w-[700px]">
+                      <defs>
+                        <marker id="bayesian-arrow" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748B" />
+                        </marker>
+                      </defs>
+
+                      {/* DAG Directed Edges */}
+                      <line x1="120" y1="60" x2="340" y2="60" stroke="#475569" strokeWidth="1.5" markerEnd="url(#bayesian-arrow)" />
+                      <line x1="120" y1="160" x2="340" y2="60" stroke="#475569" strokeWidth="1.5" markerEnd="url(#bayesian-arrow)" />
+                      <line x1="120" y1="60" x2="540" y2="110" stroke="#475569" strokeWidth="1.5" markerEnd="url(#bayesian-arrow)" />
+                      <line x1="120" y1="160" x2="540" y2="110" stroke="#475569" strokeWidth="1.5" markerEnd="url(#bayesian-arrow)" />
+                      <line x1="340" y1="60" x2="540" y2="110" stroke="#475569" strokeWidth="2" markerEnd="url(#bayesian-arrow)" />
+                      <line x1="540" y1="110" x2="740" y2="60" stroke="#64748B" strokeWidth="2" markerEnd="url(#bayesian-arrow)" />
+                      <line x1="540" y1="110" x2="740" y2="160" stroke="#64748B" strokeWidth="2" markerEnd="url(#bayesian-arrow)" />
+
+                      {/* Node: TimeRisk */}
+                      <g className="cursor-pointer" onClick={() => toggleEvidence("TimeRisk", "ODD_HOURS")}>
+                        <circle
+                          cx="120"
+                          cy="60"
+                          r="26"
+                          fill="#1E293B"
+                          stroke={bayesianEvidence.TimeRisk ? "#38BDF8" : "#475569"}
+                          strokeWidth={bayesianEvidence.TimeRisk ? "2.5" : "1"}
+                        />
+                        <text x="120" y="58" fill="#F8FAFC" fontSize="10" fontWeight="bold" textAnchor="middle">TimeRisk</text>
+                        <text x="120" y="70" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">
+                          {bayesianEvidence.TimeRisk || "Marginal"}
+                        </text>
+                      </g>
+
+                      {/* Node: ChannelRisk */}
+                      <g className="cursor-pointer" onClick={() => toggleEvidence("ChannelRisk", "HIGH_RISK")}>
+                        <circle
+                          cx="120"
+                          cy="160"
+                          r="26"
+                          fill="#1E293B"
+                          stroke={bayesianEvidence.ChannelRisk ? "#38BDF8" : "#475569"}
+                          strokeWidth={bayesianEvidence.ChannelRisk ? "2.5" : "1"}
+                        />
+                        <text x="120" y="158" fill="#F8FAFC" fontSize="10" fontWeight="bold" textAnchor="middle">Channel</text>
+                        <text x="120" y="170" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">
+                          {bayesianEvidence.ChannelRisk || "Marginal"}
+                        </text>
+                      </g>
+
+                      {/* Node: AmountSpike */}
+                      <g className="cursor-pointer" onClick={() => toggleEvidence("AmountSpike", "SPIKE")}>
+                        <circle
+                          cx="340"
+                          cy="60"
+                          r="28"
+                          fill="#1E293B"
+                          stroke={bayesianEvidence.AmountSpike ? "#38BDF8" : "#475569"}
+                          strokeWidth={bayesianEvidence.AmountSpike ? "2.5" : "1"}
+                        />
+                        <text x="340" y="58" fill="#F8FAFC" fontSize="10" fontWeight="bold" textAnchor="middle">AmountSpike</text>
+                        <text x="340" y="70" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">
+                          {bayesianEvidence.AmountSpike || "Marginal"}
+                        </text>
+                      </g>
+
+                      {/* Central Target Node: IsFraud (F) */}
+                      <g>
+                        <circle
+                          cx="540"
+                          cy="110"
+                          r="34"
+                          fill="#1E293B"
+                          stroke={bayesianResult?.fraud_posterior > 0.5 ? "#E11D48" : "#10B981"}
+                          strokeWidth="2.5"
+                        />
+                        <text x="540" y="104" fill="#FFFFFF" fontSize="11" fontWeight="bold" textAnchor="middle">IsFraud (F)</text>
+                        <text x="540" y="120" fill="#E2E8F0" fontSize="10" fontFamily="monospace" fontWeight="bold" textAnchor="middle">
+                          {bayesianResult ? `${(bayesianResult.fraud_posterior * 100).toFixed(1)}%` : "Target"}
+                        </text>
+                        <text x="540" y="158" fill="#94A3B8" fontSize="9" textAnchor="middle">Target Decision Node</text>
+                      </g>
+
+                      {/* Node: BalanceEmptied */}
+                      <g className="cursor-pointer" onClick={() => toggleEvidence("BalanceEmptied", "YES")}>
+                        <circle
+                          cx="740"
+                          cy="60"
+                          r="26"
+                          fill="#1E293B"
+                          stroke={bayesianEvidence.BalanceEmptied ? "#38BDF8" : "#475569"}
+                          strokeWidth={bayesianEvidence.BalanceEmptied ? "2.5" : "1"}
+                        />
+                        <text x="740" y="58" fill="#F8FAFC" fontSize="9" fontWeight="bold" textAnchor="middle">ZeroBal (B)</text>
+                        <text x="740" y="70" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">
+                          {bayesianEvidence.BalanceEmptied || "Marginal"}
+                        </text>
+                      </g>
+
+                      {/* Node: RapidMuleOutflow */}
+                      <g className="cursor-pointer" onClick={() => toggleEvidence("RapidMuleOutflow", "YES")}>
+                        <circle
+                          cx="740"
+                          cy="160"
+                          r="26"
+                          fill="#1E293B"
+                          stroke={bayesianEvidence.RapidMuleOutflow ? "#38BDF8" : "#475569"}
+                          strokeWidth={bayesianEvidence.RapidMuleOutflow ? "2.5" : "1"}
+                        />
+                        <text x="740" y="158" fill="#F8FAFC" fontSize="9" fontWeight="bold" textAnchor="middle">MuleFan (M)</text>
+                        <text x="740" y="170" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">
+                          {bayesianEvidence.RapidMuleOutflow || "Marginal"}
+                        </text>
+                      </g>
+                    </svg>
+                  </div>
+
+                  {/* Evidence Toggles Bar */}
+                  <div className="space-y-2 pt-1">
+                    <div className="text-xs font-semibold text-slate-800 flex justify-between items-center">
+                      <span>Observe Evidence on Network Factors:</span>
+                      <span className="text-[11px] font-mono text-slate-500">
+                        {Object.keys(bayesianEvidence).length} Factors Observed
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                      {/* TimeRisk Toggle */}
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-1.5">
+                        <div className="text-[10px] font-medium text-slate-500 uppercase">Time Anomaly:</div>
+                        <div className="flex flex-col space-y-1">
+                          <button
+                            onClick={() => toggleEvidence("TimeRisk", "NORMAL")}
+                            className={`px-2 py-1 text-[11px] font-medium rounded text-left transition ${
+                              bayesianEvidence.TimeRisk === "NORMAL" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            Normal Hours
+                          </button>
+                          <button
+                            onClick={() => toggleEvidence("TimeRisk", "ODD_HOURS")}
+                            className={`px-2 py-1 text-[11px] font-medium rounded text-left transition ${
+                              bayesianEvidence.TimeRisk === "ODD_HOURS" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            Odd / Off-Hours
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* ChannelRisk Toggle */}
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-1.5">
+                        <div className="text-[10px] font-medium text-slate-500 uppercase">Channel / Device:</div>
+                        <div className="flex flex-col space-y-1">
+                          <button
+                            onClick={() => toggleEvidence("ChannelRisk", "STANDARD")}
+                            className={`px-2 py-1 text-[11px] font-medium rounded text-left transition ${
+                              bayesianEvidence.ChannelRisk === "STANDARD" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            Regular Merchant
+                          </button>
+                          <button
+                            onClick={() => toggleEvidence("ChannelRisk", "HIGH_RISK")}
+                            className={`px-2 py-1 text-[11px] font-medium rounded text-left transition ${
+                              bayesianEvidence.ChannelRisk === "HIGH_RISK" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            Wire / Outflow
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* AmountSpike Toggle */}
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-1.5">
+                        <div className="text-[10px] font-medium text-slate-500 uppercase">Amount Deviation:</div>
+                        <div className="flex flex-col space-y-1">
+                          <button
+                            onClick={() => toggleEvidence("AmountSpike", "NORMAL")}
+                            className={`px-2 py-1 text-[11px] font-medium rounded text-left transition ${
+                              bayesianEvidence.AmountSpike === "NORMAL" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            Typical Volume
+                          </button>
+                          <button
+                            onClick={() => toggleEvidence("AmountSpike", "SPIKE")}
+                            className={`px-2 py-1 text-[11px] font-medium rounded text-left transition ${
+                              bayesianEvidence.AmountSpike === "SPIKE" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            Spike Anomaly
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* BalanceEmptied Toggle */}
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-1.5">
+                        <div className="text-[10px] font-medium text-slate-500 uppercase">Account Balance:</div>
+                        <div className="flex flex-col space-y-1">
+                          <button
+                            onClick={() => toggleEvidence("BalanceEmptied", "NO")}
+                            className={`px-2 py-1 text-[11px] font-medium rounded text-left transition ${
+                              bayesianEvidence.BalanceEmptied === "NO" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            Balance Retained
+                          </button>
+                          <button
+                            onClick={() => toggleEvidence("BalanceEmptied", "YES")}
+                            className={`px-2 py-1 text-[11px] font-medium rounded text-left transition ${
+                              bayesianEvidence.BalanceEmptied === "YES" ? "bg-rose-600 text-white" : "bg-white border border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            Drained to Zero
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* RapidMuleOutflow Toggle */}
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-1.5">
+                        <div className="text-[10px] font-medium text-slate-500 uppercase">Downstream Mule:</div>
+                        <div className="flex flex-col space-y-1">
+                          <button
+                            onClick={() => toggleEvidence("RapidMuleOutflow", "NO")}
+                            className={`px-2 py-1 text-[11px] font-medium rounded text-left transition ${
+                              bayesianEvidence.RapidMuleOutflow === "NO" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            Standard Payee
+                          </button>
+                          <button
+                            onClick={() => toggleEvidence("RapidMuleOutflow", "YES")}
+                            className={`px-2 py-1 text-[11px] font-medium rounded text-left transition ${
+                              bayesianEvidence.RapidMuleOutflow === "YES" ? "bg-rose-600 text-white" : "bg-white border border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            Mule Fan-Out
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live Bayesian Output Card */}
+                  {bayesianResult && (
+                    <div className="mt-3 p-4 bg-slate-900 rounded-lg text-slate-200 space-y-3 font-sans">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                        <div className="flex items-center space-x-2">
+                          <Sparkles className="h-4 w-4 text-slate-400" />
+                          <h4 className="text-xs font-semibold text-slate-200">Exact Bayesian Posterior Belief State</h4>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-slate-400">Prior: <strong>{(bayesianResult.fraud_prior_baseline * 100).toFixed(1)}%</strong></span>
+                          <span className="text-slate-600">&rarr;</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-mono font-medium ${
+                            bayesianResult.fraud_posterior > 0.5 ? "bg-rose-950 text-rose-300 border border-rose-800" : "bg-emerald-950 text-emerald-300 border border-emerald-800"
+                          }`}>
+                            Posterior: {(bayesianResult.fraud_posterior * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Hero Causal Verdict */}
+                      <div className={`p-3.5 rounded-lg border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 ${
+                        bayesianResult.fraud_posterior >= 0.70
+                          ? "bg-rose-950/40 border-rose-800 text-rose-200"
+                          : bayesianResult.fraud_posterior >= 0.25
+                          ? "bg-amber-950/40 border-amber-800 text-amber-200"
+                          : "bg-emerald-950/40 border-emerald-800 text-emerald-200"
+                      }`}>
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="px-1.5 py-0.5 rounded bg-black/40 text-[10px] font-mono font-medium">
+                              {bayesianResult.verdict}
+                            </span>
+                            <span className="text-xs font-medium text-slate-200">
+                              Risk Factor Multiplier: <span className="font-mono text-white font-bold">{bayesianResult.risk_multiplier}x</span>
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-300 max-w-3xl">
+                            {bayesianResult.causal_explanation}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleRunBayesianQuery()}
+                          className="px-3 py-1.5 bg-white text-slate-900 rounded font-medium text-xs shrink-0 hover:bg-slate-100 transition"
+                        >
+                          Recalculate
+                        </button>
+                      </div>
+
+                      {/* Marginal Distributions Grid */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="text-[11px] font-medium text-slate-400">Marginal Probabilities for Network Variables:</div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                          {Object.entries(bayesianResult.posterior_distributions || {}).map(([varName, states]: [string, any], vIdx) => {
+                            const isObserved = bayesianEvidence[varName] !== undefined;
+                            const mainState = Object.keys(states)[1];
+                            const mainProb = (states[mainState] * 100).toFixed(1);
+                            return (
+                              <div key={vIdx} className={`p-2.5 rounded border space-y-1 ${
+                                isObserved ? "bg-slate-800 border-slate-600" : "bg-slate-950 border-slate-800"
+                              }`}>
+                                <div className="flex justify-between items-center text-[10px]">
+                                  <span className="font-medium text-slate-400 truncate">{varName}</span>
+                                  {isObserved && <span className="text-[9px] font-mono text-slate-300">OBS</span>}
+                                </div>
+                                <div className="text-base font-bold font-mono text-slate-100">
+                                  {mainProb}%
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono">
+                                  P({mainState})
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -2341,8 +2667,8 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-300 bg-white px-6 py-4 text-center text-xs text-slate-700 font-semibold shadow-sm">
-        CrossBank TrustFL — Blockchain-Audited Federated Learning for Privacy-Preserving Cross-Bank Fraud Detection
+      <footer className="border-t border-slate-200 bg-white px-6 py-4 text-center text-xs text-slate-500 font-medium">
+        CrossBank TrustFL — Federated Learning & Blockchain Audit for Multi-Bank Fraud Detection
       </footer>
     </div>
   );

@@ -169,3 +169,19 @@ export async function runClientWeightsSA(initial_temp: number = 100.0, cooling_r
   if (!res.ok) throw new Error("Failed to run Simulated Annealing optimizer");
   return res.json();
 }
+
+export async function getBayesianStructure() {
+  const res = await fetch(`${API_BASE}/api/algorithms/bayesian-structure`);
+  if (!res.ok) throw new Error("Failed to fetch Bayesian network structure");
+  return res.json();
+}
+
+export async function runBayesianQuery(evidence: Record<string, string> = {}) {
+  const res = await fetch(`${API_BASE}/api/algorithms/bayesian-query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ evidence }),
+  });
+  if (!res.ok) throw new Error("Failed to run Bayesian inference query");
+  return res.json();
+}

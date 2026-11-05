@@ -8,6 +8,7 @@ from src.algorithms.heuristics import (
     detect_smurfing_structuring,
     optimize_client_weights_sa
 )
+from src.algorithms.bayesian_engine import bayesian_fraud_net
 
 router = APIRouter(prefix="/api/algorithms", tags=["Algorithms & Heuristics"])
 
@@ -150,3 +151,25 @@ def run_client_weights_sa(req: SAOptimizationRequest):
         cooling_rate=req.cooling_rate,
         max_iterations=req.max_iterations
     )
+
+# =============================================================================
+# BAYESIAN BELIEF NETWORK (BBN) ENDPOINTS
+# =============================================================================
+class BayesianQueryRequest(BaseModel):
+    evidence: Dict[str, str] = Field(default_factory=dict, description="Observed evidence mapping variable name to state")
+
+@router.get("/bayesian-structure")
+def get_bayesian_structure():
+    """Returns the DAG topology and state domains of the Bayesian Fraud Network."""
+    return bayesian_fraud_net.get_dag_structure()
+
+@router.post("/bayesian-query")
+def run_bayesian_query(req: BayesianQueryRequest):
+    """
+    PROBABILISTIC REASONING: Exact Bayesian Inference via Variable Elimination
+    Computes exact posterior probability P(X | Evidence) for all nodes and provides causal XAI explanation.
+    """
+    result = bayesian_fraud_net.query(evidence=req.evidence)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
