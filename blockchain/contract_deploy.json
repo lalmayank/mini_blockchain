@@ -3,9 +3,142 @@
   "deployer": "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
   "abi": [
     {
-      "inputs": [],
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_bankA",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_bankB",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_bankC",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_requiredApprovals",
+          "type": "uint256"
+        }
+      ],
       "stateMutability": "nonpayable",
       "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "bankAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "bankId",
+          "type": "string"
+        }
+      ],
+      "name": "BankRegistered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "bankAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "bankId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "weightsHash",
+          "type": "string"
+        }
+      ],
+      "name": "BankUpdateSubmitted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "bankAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "bankId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "currentApprovals",
+          "type": "uint256"
+        }
+      ],
+      "name": "RoundApproved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "bankAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "bankId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "reason",
+          "type": "string"
+        }
+      ],
+      "name": "RoundChallenged",
+      "type": "event"
     },
     {
       "anonymous": false,
@@ -61,12 +194,24 @@
         },
         {
           "indexed": false,
+          "internalType": "string",
+          "name": "globalModelHash",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "defenseStrategy",
+          "type": "string"
+        },
+        {
+          "indexed": false,
           "internalType": "uint256",
           "name": "timestamp",
           "type": "uint256"
         }
       ],
-      "name": "RoundStarted",
+      "name": "RoundProposed",
       "type": "event"
     },
     {
@@ -108,12 +253,95 @@
     },
     {
       "inputs": [],
+      "name": "activeGlobalModelHash",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_roundId",
+          "type": "uint256"
+        }
+      ],
+      "name": "approveRound",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "name": "bankIdToAddress",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "coordinator",
       "outputs": [
         {
           "internalType": "address",
           "name": "",
           "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_roundId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getRoundApprovers",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_roundId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getRoundRejectors",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
         }
       ],
       "stateMutability": "view",
@@ -200,13 +428,71 @@
         },
         {
           "internalType": "bool",
+          "name": "isProposed",
+          "type": "bool"
+        },
+        {
+          "internalType": "bool",
           "name": "isFinalized",
           "type": "bool"
         },
         {
           "internalType": "uint256",
+          "name": "approvalCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
           "name": "totalSubmissions",
           "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "hasApproved",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_bank",
+          "type": "address"
+        }
+      ],
+      "name": "isBankRegistered",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isRegistered",
+          "type": "bool"
+        },
+        {
+          "internalType": "string",
+          "name": "bankId",
+          "type": "string"
         }
       ],
       "stateMutability": "view",
@@ -268,7 +554,170 @@
           "type": "string[]"
         }
       ],
+      "name": "proposeRound",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_roundId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "_defenseStrategy",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "_globalModelHash",
+          "type": "string"
+        },
+        {
+          "internalType": "string[]",
+          "name": "_bankIds",
+          "type": "string[]"
+        },
+        {
+          "internalType": "string[]",
+          "name": "_weightsHashes",
+          "type": "string[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "_sampleCounts",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "string[]",
+          "name": "_decisions",
+          "type": "string[]"
+        },
+        {
+          "internalType": "string[]",
+          "name": "_reasons",
+          "type": "string[]"
+        }
+      ],
       "name": "recordRound",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_bank",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "_bankId",
+          "type": "string"
+        }
+      ],
+      "name": "registerBank",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "registeredBanks",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_roundId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "_reason",
+          "type": "string"
+        }
+      ],
+      "name": "rejectRound",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "rejectionReasons",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "requiredApprovals",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_roundId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "_weightsHash",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_sampleCount",
+          "type": "uint256"
+        }
+      ],
+      "name": "submitBankUpdate",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -298,5 +747,10 @@
       "type": "function"
     }
   ],
-  "block_number": 1
+  "block_number": 1,
+  "network": "Local EVM",
+  "bank_a": "0x0a9f46Fa088a082F6f237d59D0465163a7508b8C",
+  "bank_b": "0x14a033bF3762b3c35b0f12c203155ba69bef161E",
+  "bank_c": "0x064Abc8f7f0ea111d40DDa6754602F7B94ecb634",
+  "required_approvals": 2
 }

@@ -185,3 +185,129 @@ export async function runBayesianQuery(evidence: Record<string, string> = {}) {
   if (!res.ok) throw new Error("Failed to run Bayesian inference query");
   return res.json();
 }
+
+// ==========================================
+// BLOCKCHAIN & SEPOLIA METAMASK API
+// ==========================================
+export async function getBlockchainConfig() {
+  const res = await fetch(`${API_BASE}/api/audit/config`);
+  if (!res.ok) throw new Error("Failed to fetch blockchain config");
+  return res.json();
+}
+
+export async function getGasMetrics() {
+  const res = await fetch(`${API_BASE}/api/audit/gas-metrics`);
+  if (!res.ok) throw new Error("Failed to fetch gas metrics");
+  return res.json();
+}
+
+export async function approveRoundBackend(round_id: number, bank_address: string, bank_private_key: string = "") {
+  const res = await fetch(`${API_BASE}/api/audit/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ round_id, bank_address, bank_private_key }),
+  });
+  if (!res.ok) throw new Error("Failed to approve round");
+  return res.json();
+}
+
+// ==========================================
+// DEDICATED BANK PORTAL API
+// ==========================================
+export async function getBankPortalDetails(bank_id: string) {
+  const res = await fetch(`${API_BASE}/api/portal/bank/${bank_id}`);
+  if (!res.ok) throw new Error(`Failed to fetch portal for ${bank_id}`);
+  return res.json();
+}
+
+export async function trainLocalBank(bank_id: string, epochs: number = 1) {
+  const res = await fetch(`${API_BASE}/api/portal/bank/${bank_id}/train-local?epochs=${epochs}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Failed local training for ${bank_id}`);
+  return res.json();
+}
+
+export async function submitBankUpdateOnChain(bank_id: string) {
+  const res = await fetch(`${API_BASE}/api/portal/bank/${bank_id}/submit-on-chain`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Failed to submit update for ${bank_id}`);
+  return res.json();
+}
+
+export async function validateGlobalOnBank(bank_id: string) {
+  const res = await fetch(`${API_BASE}/api/portal/bank/${bank_id}/validate-global`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Failed to validate model on ${bank_id}`);
+  return res.json();
+}
+
+export async function uploadBankModelCheckpoint(bank_id: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${API_BASE}/api/portal/bank/${bank_id}/upload-model`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to upload model checkpoint for ${bank_id}`);
+  }
+  return res.json();
+}
+
+export async function getDeployPayload() {
+  const res = await fetch(`${API_BASE}/api/audit/deploy-payload`);
+  if (!res.ok) throw new Error("Failed to fetch deploy payload");
+  return res.json();
+}
+
+export async function syncUserWallet(address: string, role: string = "coordinator") {
+  const res = await fetch(`${API_BASE}/api/audit/sync-wallet`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address, role }),
+  });
+  if (!res.ok) throw new Error("Failed to sync wallet");
+  return res.json();
+}
+
+export async function bankLogin(payload: {
+  username: string;
+  password: string;
+  wallet_address?: string;
+}) {
+  const res = await fetch(`${API_BASE}/api/portal/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Authentication failed");
+  }
+  return res.json();
+}
+
+export async function getAccountsInfo() {
+  const res = await fetch(`${API_BASE}/api/portal/accounts-info`);
+  if (!res.ok) throw new Error("Failed to fetch accounts info");
+  return res.json();
+}
+
+export async function registerDeployedContract(payload: {
+  contract_address: string;
+  deployer: string;
+  tx_hash?: string;
+  block_number?: number;
+}) {
+  const res = await fetch(`${API_BASE}/api/audit/register-deployed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to register deployed contract");
+  return res.json();
+}

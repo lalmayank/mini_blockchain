@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Ensure root directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.api import status, training, fraud, security, audit, algorithms
+from backend.api import status, training, fraud, security, audit, algorithms, bank_portal
 
 app = FastAPI(
     title="CrossBank TrustFL API",
@@ -30,6 +30,7 @@ app.include_router(fraud.router)
 app.include_router(security.router)
 app.include_router(audit.router)
 app.include_router(algorithms.router)
+app.include_router(bank_portal.router)
 
 @app.get("/")
 def root():

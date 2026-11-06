@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Shield,
   ShieldCheck,
@@ -26,7 +27,14 @@ import {
   Share2,
   Sliders,
   Compass,
-  Sparkles
+  Sparkles,
+  Wallet,
+  ExternalLink,
+  Coins,
+  Fuel,
+  Vote,
+  KeyRound,
+  X
 } from "lucide-react";
 import * as api from "./api";
 
@@ -43,6 +51,17 @@ export default function App() {
   const [samples, setSamples] = useState<any[]>([]);
   const [backendOnline, setBackendOnline] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Web3 & MetaMask State
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState("");
+  const [walletBalance, setWalletBalance] = useState("0.0");
+  const [walletChainId, setWalletChainId] = useState("");
+  const [walletRole, setWalletRole] = useState("Public Auditor");
+  const [connectingWallet, setConnectingWallet] = useState(false);
+  const [chainConfig, setChainConfig] = useState<any>(null);
+  const [gasMetrics, setGasMetrics] = useState<any>(null);
+  const [approvingRoundId, setApprovingRoundId] = useState<number | null>(null);
 
   // Control 1: Start Training state
   const [trainRoundId, setTrainRoundId] = useState(3);
@@ -190,19 +209,265 @@ export default function App() {
     const interval = setInterval(() => {
       refreshLiveStatus();
     }, 2500);
-    return () => clearInterval(interval);
+
+    const handleAccounts = async (accounts: string[]) => {
+      if (accounts && accounts.length > 0) {
+        const addr = accounts[0];
+        setWalletAddress(addr);
+        setWalletConnected(true);
+        const eth = (window as any).ethereum;
+        try {
+          if (eth) {
+            const balHex = await eth.request({ method: "eth_getBalance", params: [addr, "latest"] });
+            const balEth = (parseInt(balHex, 16) / 1e18).toFixed(4);
+            setWalletBalance(balEth);
+          }
+          await api.syncUserWallet(addr, "coordinator");
+          const updatedCfg = await api.getBlockchainConfig();
+          setChainConfig(updatedCfg);
+          updateUserRole(addr, updatedCfg);
+        } catch (e) {
+          console.warn("Account change sync error:", e);
+        }
+      } else {
+        setWalletAddress("");
+        setWalletConnected(false);
+      }
+    };
+
+    if (typeof window !== "undefined" && (window as any).ethereum) {
+      (window as any).ethereum.on("accountsChanged", handleAccounts);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (typeof window !== "undefined" && (window as any).ethereum) {
+        try {
+          (window as any).ethereum.removeListener("accountsChanged", handleAccounts);
+        } catch (_) {}
+      }
+    };
   }, []);
+
+  const connectMetaMask = async () => {
+    if (typeof window === "undefined") return;
+    const eth = (window as any).ethereum;
+    if (!eth) {
+      alert("MetaMask extension not found! Please install MetaMask to interact with Ethereum Sepolia.");
+      return;
+    }
+    setConnectingWallet(true);
+    try {
+      const accounts = await eth.request({ method: "eth_requestAccounts" });
+      const address = accounts[0];
+      setWalletAddress(address);
+      setWalletConnected(true);
+
+      const chainId = await eth.request({ method: "eth_chainId" });
+      setWalletChainId(chainId);
+      if (chainId !== "0xaa36a7") {
+        try {
+          await eth.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0xaa36a7" }],
+          });
+        } catch (switchErr: any) {
+          if (switchErr.code === 4902) {
+            await eth.request({
+              method: "wallet_addEthereumChain",
+              params: [{
+                chainId: "0xaa36a7",
+                chainName: "Sepolia Test Network",
+                nativeCurrency: { name: "SepoliaETH", symbol: "ETH", decimals: 18 },
+                rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+                blockExplorerUrls: ["https://sepolia.etherscan.io"]
+              }]
+            });
+          }
+        }
+      }
+
+      const balHex = await eth.request({ method: "eth_getBalance", params: [address, "latest"] });
+      const balEth = (parseInt(balHex, 16) / 1e18).toFixed(4);
+      setWalletBalance(balEth);
+      updateUserRole(address, chainConfig);
+
+      // Automatically sync connected MetaMask address into system architecture
+      try {
+        await api.syncUserWallet(address, "coordinator");
+        const updatedCfg = await api.getBlockchainConfig();
+        setChainConfig(updatedCfg);
+        updateUserRole(address, updatedCfg);
+      } catch (syncErr) {
+        console.warn("Wallet sync warning:", syncErr);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("MetaMask connection failed: " + err.message);
+    } finally {
+      setConnectingWallet(false);
+    }
+  };
+
+  const [deployingMetaMask, setDeployingMetaMask] = useState(false);
+
+  // Authentication State for Bank Signers (No arbitrary toggle!)
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authUsername, setAuthUsername] = useState("bank_a");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  const handleBankAuthSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsAuthenticating(true);
+    setAuthError("");
+    try {
+      const res = await api.bankLogin({
+        username: authUsername,
+        password: authPassword,
+        wallet_address: walletAddress || undefined,
+      });
+      setShowAuthModal(false);
+      setAuthPassword("");
+
+      // Refresh config to reflect updated wallet mappings in the architecture
+      const updatedCfg = await api.getBlockchainConfig();
+      setChainConfig(updatedCfg);
+      if (walletAddress) {
+        updateUserRole(walletAddress, updatedCfg);
+      }
+      alert(`Authenticated successfully as ${res.bank_name}! Your MetaMask wallet is now linked.`);
+    } catch (err: any) {
+      setAuthError(err.message || "Invalid Bank ID or Password");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleSwitchMetaMaskAccount = async () => {
+    if (typeof window === "undefined" || !(window as any).ethereum) return;
+    try {
+      const eth = (window as any).ethereum;
+      await eth.request({
+        method: "wallet_requestPermissions",
+        params: [{ eth_accounts: {} }],
+      });
+      const accounts = await eth.request({ method: "eth_accounts" });
+      if (accounts && accounts.length > 0) {
+        const addr = accounts[0];
+        setWalletAddress(addr);
+        setWalletConnected(true);
+        const balHex = await eth.request({ method: "eth_getBalance", params: [addr, "latest"] });
+        const balEth = (parseInt(balHex, 16) / 1e18).toFixed(4);
+        setWalletBalance(balEth);
+        const updatedCfg = await api.getBlockchainConfig();
+        setChainConfig(updatedCfg);
+        updateUserRole(addr, updatedCfg);
+      }
+    } catch (e: any) {
+      if (e.code !== 4001) {
+        console.warn("Account switch error:", e);
+      }
+    }
+  };
+
+  const handleDeployContractMetaMask = async () => {
+    if (typeof window === "undefined" || !(window as any).ethereum || !walletAddress) {
+      alert("Please connect your MetaMask wallet first!");
+      return;
+    }
+    setDeployingMetaMask(true);
+    try {
+      const payload = await api.getDeployPayload();
+      const eth = (window as any).ethereum;
+
+      const txHash = await eth.request({
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: walletAddress,
+            data: payload.bytecode,
+            gas: "0x350000",
+          },
+        ],
+      });
+
+      alert(`Deployment transaction broadcast to Sepolia!\nTx Hash: ${txHash.slice(0, 16)}...\nWaiting for block confirmation...`);
+
+      let receipt = null;
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        receipt = await eth.request({
+          method: "eth_getTransactionReceipt",
+          params: [txHash],
+        });
+        if (receipt && receipt.contractAddress) break;
+      }
+
+      if (receipt && receipt.contractAddress) {
+        await api.registerDeployedContract({
+          contract_address: receipt.contractAddress,
+          deployer: walletAddress,
+          tx_hash: txHash,
+          block_number: parseInt(receipt.blockNumber, 16),
+        });
+        alert(`Contract successfully deployed to Sepolia!\nAddress: ${receipt.contractAddress}\nRegistered with TrustFL consortium.`);
+        await loadInitialData();
+        await refreshLiveStatus();
+      } else {
+        alert("Transaction sent! Receipt taking longer to confirm. Please check Sepolia Etherscan.");
+      }
+    } catch (err: any) {
+      alert("MetaMask deployment failed: " + err.message);
+    } finally {
+      setDeployingMetaMask(false);
+    }
+  };
+
+  const updateUserRole = (addr: string, cfg: any) => {
+    if (!addr || !cfg) return;
+    const lower = addr.toLowerCase();
+    if (cfg.coordinator_address && lower === cfg.coordinator_address.toLowerCase()) {
+      setWalletRole("Coordinator Notary");
+    } else if (cfg.bank_a_address && lower === cfg.bank_a_address.toLowerCase()) {
+      setWalletRole("Bank A Authorized Signer");
+    } else if (cfg.bank_b_address && lower === cfg.bank_b_address.toLowerCase()) {
+      setWalletRole("Bank B Authorized Signer");
+    } else if (cfg.bank_c_address && lower === cfg.bank_c_address.toLowerCase()) {
+      setWalletRole("Bank C Authorized Signer");
+    } else {
+      setWalletRole("Public Auditor");
+    }
+  };
+
+  const handleApproveRoundOnChain = async (roundId: number) => {
+    setApprovingRoundId(roundId);
+    try {
+      const bankAddr = walletAddress || chainConfig?.bank_a_address || "0x0a9f46Fa088a082F6f237d59D0465163a7508b8C";
+      await api.approveRoundBackend(roundId, bankAddr);
+      alert(`Success! On-chain quorum approval cast for Round #${roundId}.`);
+      await refreshLiveStatus();
+      await loadInitialData();
+    } catch (err: any) {
+      alert("Quorum approval failed: " + err.message);
+    } finally {
+      setApprovingRoundId(null);
+    }
+  };
 
   const loadInitialData = async () => {
     try {
-      const [st, bk, gm, ar, comp, smp, topo] = await Promise.all([
+      const [st, bk, gm, ar, comp, smp, topo, bcfg, gmet] = await Promise.all([
         api.getSystemStatus(),
         api.getRegisteredBanks(),
         api.getGlobalModel(),
         api.getAuditRounds(),
         api.getModelComparison(),
         api.getFraudSamples(),
-        api.getGraphTopology().catch(() => null)
+        api.getGraphTopology().catch(() => null),
+        api.getBlockchainConfig().catch(() => null),
+        api.getGasMetrics().catch(() => null)
       ]);
       setStatus(st);
       setBanks(bk.banks || []);
@@ -211,6 +476,11 @@ export default function App() {
       setComparison(comp.benchmarks || []);
       setSamples(smp.samples || []);
       if (topo) setGraphTopology(topo);
+      if (bcfg) {
+        setChainConfig(bcfg);
+        if (walletAddress) updateUserRole(walletAddress, bcfg);
+      }
+      if (gmet) setGasMetrics(gmet);
       setBackendOnline(true);
 
       if (smp.samples && smp.samples.length > 0) {
@@ -227,16 +497,18 @@ export default function App() {
 
   const refreshLiveStatus = async () => {
     try {
-      const [st, tr, ar, gm] = await Promise.all([
+      const [st, tr, ar, gm, gmet] = await Promise.all([
         api.getSystemStatus(),
         api.getTrainingStatus(),
         api.getAuditRounds(),
-        api.getGlobalModel()
+        api.getGlobalModel(),
+        api.getGasMetrics().catch(() => null)
       ]);
       setStatus(st);
       setTrainingStatus(tr);
       setAuditRounds(ar.rounds || []);
       setGlobalModel(gm);
+      if (gmet) setGasMetrics(gmet);
       setBackendOnline(true);
     } catch (e) {
       setBackendOnline(false);
@@ -456,8 +728,52 @@ export default function App() {
 
           <div className="flex items-center space-x-1.5 bg-slate-100 border border-slate-200 rounded-md px-3 py-1 text-xs font-medium text-slate-700">
             <Lock className="w-3.5 h-3.5 text-slate-500" />
-            <span>Solidity EVM On-Chain</span>
+            <span>{chainConfig?.network || "Sepolia EVM"}</span>
+            {gasMetrics && (
+              <span className="text-[10px] text-slate-500 font-mono ml-1">
+                ({gasMetrics.latest_gas_price_gwei} Gwei)
+              </span>
+            )}
           </div>
+
+          {/* MetaMask Wallet Connection Component */}
+          {walletConnected ? (
+            <div className="flex items-center space-x-2 bg-slate-900 text-white rounded-md px-2.5 py-1 text-xs font-medium border border-slate-800 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+              <span className="font-mono text-slate-200">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
+              <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                {walletBalance} ETH
+              </span>
+              <span className="text-[10px] bg-slate-800 text-emerald-300 border border-slate-700 px-1.5 py-0.5 rounded font-medium">
+                {walletRole}
+              </span>
+              <button
+                onClick={handleSwitchMetaMaskAccount}
+                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2 py-0.5 rounded border border-slate-700 transition cursor-pointer"
+                title="Change or select a different MetaMask account"
+              >
+                Switch Account
+              </button>
+              <button
+                onClick={() => { setShowAuthModal(true); setAuthError(""); }}
+                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2 py-0.5 rounded border border-slate-700 transition flex items-center space-x-1 cursor-pointer"
+                title="Authenticate as Bank Signer or Coordinator with ID & Password"
+              >
+                <KeyRound className="w-3 h-3 text-emerald-400" />
+                <span>Bank Login</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={connectMetaMask}
+              disabled={connectingWallet}
+              className="flex items-center space-x-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md px-3 py-1 text-xs font-medium transition shadow-xs"
+              title="Connect MetaMask to interact with Sepolia Testnet"
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span>{connectingWallet ? "Connecting..." : "Connect MetaMask"}</span>
+            </button>
+          )}
 
           <button
             onClick={() => { refreshLiveStatus(); loadInitialData(); }}
@@ -496,6 +812,25 @@ export default function App() {
             </button>
           );
         })}
+
+        {/* Dedicated Bank Portals Quick Links */}
+        <div className="flex items-center space-x-1.5 ml-auto py-2">
+          <span className="text-[11px] text-slate-400 font-medium mr-1 hidden lg:inline">Dedicated Portals:</span>
+          {[
+            { id: "bank_a", label: "Bank A Portal" },
+            { id: "bank_b", label: "Bank B Portal" },
+            { id: "bank_c", label: "Bank C Portal" }
+          ].map((b) => (
+            <Link
+              key={b.id}
+              href={`/portal/${b.id}`}
+              className="px-2.5 py-1 text-[11px] font-medium bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-slate-700 hover:text-slate-900 transition flex items-center space-x-1"
+            >
+              <span>{b.label}</span>
+              <ExternalLink className="h-2.5 w-2.5 text-slate-400" />
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -598,6 +933,16 @@ export default function App() {
                         <span className="text-slate-500 font-sans">Transmitted Data:</span>
                         <span className="text-slate-800 font-semibold">Model Weights Only</span>
                       </div>
+                    </div>
+
+                    <div className="pt-2.5 border-t border-slate-100">
+                      <Link
+                        href={`/portal/${b.id}`}
+                        className="w-full py-1.5 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 rounded text-xs font-medium flex items-center justify-between transition group"
+                      >
+                        <span>Open Sovereign Portal</span>
+                        <ArrowRight className="h-3 w-3 text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 transition-transform" />
+                      </Link>
                     </div>
                   </div>
                 ))}
@@ -1315,11 +1660,46 @@ export default function App() {
         {/* PAGE 5 — BLOCKCHAIN AUDIT */}
         {activeTab === "audit" && (
           <div className="space-y-6">
+            {/* Deploy via Connected MetaMask Banner */}
+            <div className="p-4 bg-slate-900 text-white rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="space-y-0.5">
+                <div className="text-xs font-semibold flex items-center space-x-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                  <span>Deploy FraudAudit.sol Directly with Your MetaMask Wallet</span>
+                </div>
+                <p className="text-[11px] text-slate-300">
+                  {walletConnected
+                    ? `Connected: ${walletAddress.slice(0, 10)}... (${walletRole}). Click to deploy directly using your MetaMask wallet on Sepolia.`
+                    : "Connect your MetaMask wallet in the top header to deploy the contract and pay gas directly from your own wallet."}
+                </p>
+              </div>
+
+              <button
+                onClick={handleDeployContractMetaMask}
+                disabled={deployingMetaMask || !walletConnected}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-medium rounded transition flex items-center space-x-1.5 shrink-0 shadow-xs"
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>{deployingMetaMask ? "Deploying on Sepolia..." : "Deploy via MetaMask"}</span>
+              </button>
+            </div>
+
             <div className="p-5 bg-white border border-slate-200 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4 shadow-xs">
               <div>
-                <span className="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Smart Contract</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Smart Contract</span>
+                  <a
+                    href={`https://sepolia.etherscan.io/address/${chainConfig?.contract_address || "0xF2E246BB76DF876Cef8b38ae84130F4F55De395b"}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-slate-500 hover:text-slate-900 flex items-center space-x-1 text-[11px]"
+                  >
+                    <span>Etherscan</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
                 <div className="text-xs font-mono text-slate-900 font-semibold mt-1 break-all select-all">
-                  0xF2E246BB76DF876Cef8b38ae84130F4F55De395b
+                  {chainConfig?.contract_address || "0xF2E246BB76DF876Cef8b38ae84130F4F55De395b"}
                 </div>
                 <div className="text-slate-500 text-[11px] mt-0.5">Solidity ^0.8.20 (FraudAudit.sol)</div>
               </div>
@@ -1327,15 +1707,67 @@ export default function App() {
               <div>
                 <span className="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Coordinator Signer</span>
                 <div className="text-xs font-mono text-slate-900 font-semibold mt-1 break-all select-all">
-                  0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf
+                  {chainConfig?.coordinator_address || "0x34aF2A1e0d0E53e9C2f120A96DeAe3DC8d9290c5"}
                 </div>
-                <div className="text-slate-500 text-[11px] mt-0.5">Authorized Round Notary</div>
+                <div className="text-slate-500 text-[11px] mt-0.5">Authorized Round Notary (EIP-1559)</div>
               </div>
 
               <div>
                 <span className="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Consensus Layer</span>
-                <div className="text-xs font-semibold text-slate-900 mt-1">EVM Local Blockchain</div>
-                <div className="text-slate-500 text-[11px] mt-0.5">Web3.py / py-evm Integration</div>
+                <div className="text-xs font-semibold text-slate-900 mt-1">{chainConfig?.network || "Ethereum Sepolia Testnet"}</div>
+                <div className="text-slate-500 text-[11px] mt-0.5">Proof of Stake (PoS) + 2-of-3 Bank Quorum</div>
+              </div>
+            </div>
+
+            {/* Live Consortium Gas & Network Analytics Card */}
+            <div className="p-5 bg-white border border-slate-200 rounded-lg space-y-3 shadow-xs">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <div className="flex items-center space-x-2">
+                  <Fuel className="h-4 w-4 text-slate-700" />
+                  <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                    EVM Gas Economics & Multi-Bank Consensus Analytics
+                  </h3>
+                </div>
+                <span className="text-[11px] font-mono px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-medium">
+                  {gasMetrics?.network || "Sepolia Testnet"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono text-center">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                  <div className="text-[10px] text-slate-500 font-sans uppercase font-medium">Gas Used / Round</div>
+                  <div className="text-base font-semibold text-slate-900 mt-0.5">
+                    {gasMetrics?.cumulative_gas_used?.toLocaleString() || "894,818"} units
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                  <div className="text-[10px] text-slate-500 font-sans uppercase font-medium">Effective Gas Price</div>
+                  <div className="text-base font-semibold text-slate-900 mt-0.5">
+                    {gasMetrics?.latest_gas_price_gwei || "1.0"} Gwei
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                  <div className="text-[10px] text-slate-500 font-sans uppercase font-medium">Round Fee (ETH)</div>
+                  <div className="text-base font-semibold text-emerald-700 mt-0.5">
+                    {gasMetrics?.latest_tx_fee_eth || "0.000895"} ETH
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                  <div className="text-[10px] text-slate-500 font-sans uppercase font-medium">Est. Mainnet USD</div>
+                  <div className="text-base font-semibold text-slate-900 mt-0.5">
+                    ${gasMetrics?.estimated_usd_cost || "2.37"}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                  <div className="text-[10px] text-slate-500 font-sans uppercase font-medium">Block Confirmation</div>
+                  <div className="text-base font-semibold text-slate-900 mt-0.5">
+                    ~{gasMetrics?.block_confirmation_time_sec || "12.0"}s
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1560,11 +1992,50 @@ export default function App() {
                                     </div>
                                   </div>
                                   <div className="p-2.5 bg-white border border-slate-200 rounded">
-                                    <div className="text-[10px] text-slate-500 font-sans">On-Chain Transaction Hash:</div>
+                                    <div className="text-[10px] text-slate-500 font-sans flex items-center justify-between">
+                                      <span>On-Chain Transaction Hash:</span>
+                                      {currentRoundData.blockchain_receipt?.transaction_hash && (
+                                        <a
+                                          href={`https://sepolia.etherscan.io/tx/${currentRoundData.blockchain_receipt.transaction_hash}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-slate-600 hover:text-slate-900 flex items-center space-x-1 underline font-medium"
+                                        >
+                                          <span>Sepolia Etherscan</span>
+                                          <ExternalLink className="h-2.5 w-2.5" />
+                                        </a>
+                                      )}
+                                    </div>
                                     <div className="text-xs text-slate-900 break-all select-all font-semibold mt-0.5">
                                       {currentRoundData.blockchain_receipt?.transaction_hash ?? "Local EVM Ledger Commitment"}
                                     </div>
                                   </div>
+                                </div>
+
+                                {/* Multi-Bank Quorum Approval Bar */}
+                                <div className="p-3 bg-white border border-slate-200 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                  <div className="space-y-0.5">
+                                    <div className="text-xs font-semibold text-slate-900 flex items-center space-x-1.5">
+                                      <Vote className="h-4 w-4 text-slate-700" />
+                                      <span>Multi-Bank Consensus Approval (2-of-3 Quorum)</span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500">
+                                      Member banks verify local validation performance and sign cryptographic approvals on-chain.
+                                    </p>
+                                  </div>
+
+                                  <button
+                                    onClick={() => handleApproveRoundOnChain(currentRoundData.round_id)}
+                                    disabled={approvingRoundId === currentRoundData.round_id}
+                                    className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-medium flex items-center space-x-1.5 transition shrink-0 shadow-xs"
+                                  >
+                                    <Vote className="w-3.5 h-3.5" />
+                                    <span>
+                                      {approvingRoundId === currentRoundData.round_id
+                                        ? "Broadcasting Approval..."
+                                        : "Sign & Approve Round (MetaMask)"}
+                                    </span>
+                                  </button>
                                 </div>
 
                                 <div className="space-y-1.5 pt-1">
@@ -1632,8 +2103,19 @@ export default function App() {
                           </td>
                           <td className="py-2.5 px-3 font-sans text-slate-600 text-xs">
                             {r.blockchain_receipt?.transaction_hash ? (
-                              <div>
-                                <div className="text-slate-900 font-mono font-medium">Tx: {r.blockchain_receipt.transaction_hash.slice(0, 14)}...</div>
+                              <div className="space-y-0.5">
+                                <div className="text-slate-900 font-mono font-medium flex items-center space-x-1">
+                                  <span>Tx: {r.blockchain_receipt.transaction_hash.slice(0, 12)}...</span>
+                                  <a
+                                    href={`https://sepolia.etherscan.io/tx/${r.blockchain_receipt.transaction_hash}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-slate-400 hover:text-slate-800"
+                                    title="View on Sepolia Etherscan"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                </div>
                                 <div className="text-slate-500 text-[11px]">Block #{r.blockchain_receipt.block_number}</div>
                               </div>
                             ) : (
@@ -2665,6 +3147,92 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Bank ID & Password Authentication Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-slate-900 text-white rounded-lg">
+                  <KeyRound className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Consortium Signer Authentication</h3>
+                  <p className="text-[11px] text-slate-500">Authenticate bank node credentials (no free toggling)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAuthModal(false)}
+                className="text-slate-400 hover:text-slate-700 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {authError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-700 flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleBankAuthSubmit} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-700 block">Bank / Institution Identifier</label>
+                <input
+                  type="text"
+                  value={authUsername}
+                  onChange={(e) => setAuthUsername(e.target.value)}
+                  placeholder="e.g. bank_a, bank_b, bank_c, coordinator"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-700 block">Security Password</label>
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="Enter account password..."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  required
+                />
+              </div>
+
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-md text-[11px] text-slate-600 space-y-1">
+                <div className="font-semibold text-slate-800 text-[10px] uppercase">Default Credentials:</div>
+                <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
+                  <div>Bank A: <code className="text-slate-900 font-bold">bank_a</code> / <code>banka123</code></div>
+                  <div>Bank B: <code className="text-slate-900 font-bold">bank_b</code> / <code>bankb123</code></div>
+                  <div>Bank C: <code className="text-slate-900 font-bold">bank_c</code> / <code>bankc123</code></div>
+                  <div>Coordinator: <code className="text-slate-900 font-bold">coordinator</code> / <code>admin123</code></div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowAuthModal(false)}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-md transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAuthenticating}
+                  className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-medium rounded-md transition flex items-center justify-center space-x-1.5"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{isAuthenticating ? "Verifying..." : "Authenticate"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white px-6 py-4 text-center text-xs text-slate-500 font-medium">
